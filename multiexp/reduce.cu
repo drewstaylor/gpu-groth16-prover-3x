@@ -2,6 +2,7 @@
 #include <vector>
 #include <chrono>
 #include <memory>
+#include <math.h> 
 #include <cooperative_groups.h>
 
 #include "curves.cu"
@@ -75,13 +76,115 @@ ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t 
     }
 }
 
+#define NUM_WIDTH 16
+
+template <typename EC>
+__inline__ __device__
+EC shfl_down(EC x, int offset){
+
+    var tmp[EC::NELTS * ELT_LIMBS];
+    var res[EC::NELTS * ELT_LIMBS];
+    EC result;
+
+    EC::store_jac(tmp, x);
+    #pragma unroll
+    for(int i = 0; i <  EC::NELTS * ELT_LIMBS; i++)
+        res[i] = __shfl_down_sync(__activemask(), tmp[i], offset);
+
+    EC::load_jac(result, res);
+    return result;
+}
+
+template <typename EC>
+__inline__ __device__
+EC warpReduceSum(EC x) {
+    #pragma unroll
+    for (int offset = warpSize/2; offset > 0; offset /= 2) {
+        EC y = shfl_down<EC>(x, offset);
+        EC::add(x, x, y);
+    }
+    return x;
+}
+
+template <typename EC>
+__inline__ __device__
+EC blockReduceSum(EC x) {
+    static __shared__ EC sMem[32];
+    int lane = threadIdx.x % warpSize;
+    int warpId = threadIdx.x / warpSize;
+    x = warpReduceSum<EC>(x); 
+    if (lane==0) sMem[warpId]=x;
+    __syncthreads();
+    if(threadIdx.x < blockDim.x / warpSize)
+        x = sMem[lane];
+    else 
+        EC::set_zero(x);
+    if (warpId==0) x = warpReduceSum<EC>(x);
+    return x;
+}
+
+template <typename EC>
+__global__ void
+deviceReduceKernelSecond(var *X, const var *resIn, size_t n) { 
+    int T = threadIdx.x, B = blockIdx.x, D = blockDim.x;
+    int elts_per_block = D / BIG_WIDTH;
+    int tileIdx = T / BIG_WIDTH;
+    int idx = elts_per_block * B + tileIdx;
+
+    EC sum;
+    EC::set_zero(sum);
+    if (idx < n) {
+        EC x; 
+        //for(int i = idx; i < n; i += (blockDim.x * gridDim.x)){
+            EC::load_jac(x, resIn + (idx * EC::NELTS * ELT_LIMBS));
+            EC::add(sum, x, sum);            
+        //}
+        sum = blockReduceSum<EC>(sum);
+        
+    }   
+    if (threadIdx.x==0) // Store the end result
+            EC::store_jac(X + (blockIdx.x * EC::NELTS * ELT_LIMBS), sum); 
+}
+
+template <typename EC>
+__global__ void 
+deviceReduceKernel(var *result, var *X, const var *W, size_t n) {
+    int T = threadIdx.x, B = blockIdx.x, D = blockDim.x;
+    int elts_per_block = D / BIG_WIDTH;
+    int tileIdx = T / BIG_WIDTH;
+    int idx = elts_per_block * B + tileIdx;
+
+    EC sum;
+    EC::set_zero(sum);
+    if (idx < n) {
+        typedef typename EC::group_type Fr;
+        EC x; Fr w; EC sum;
+        EC::set_zero(sum);
+        int i = idx;
+        //for(int i = idx; i < n; i += (blockDim.x * gridDim.x * BIG_WIDTH)){
+            int x_off = i * EC::NELTS * ELT_LIMBS;
+            int w_off = i * ELT_LIMBS;
+
+            EC::load_affine(x, X + x_off);
+            Fr::load(w, W + w_off);
+
+            Fr::from_monty(w, w);
+            EC::mul(sum, w.a, x);
+            //EC::add(sum, x, sum);            
+        //}
+        sum = blockReduceSum<EC>(sum);
+    }
+    if (threadIdx.x==0)
+        EC::store_jac(result + (blockIdx.x * EC::NELTS * ELT_LIMBS), sum);
+}
+
 template< typename EC >
 __global__ void
 ec_multiexp(var *X, const var *W, size_t n)
 {
     int T = threadIdx.x, B = blockIdx.x, D = blockDim.x;
-    int elts_per_block = D / BIG_WIDTH;
-    int tileIdx = T / BIG_WIDTH;
+    int elts_per_block = D / NUM_WIDTH;
+    int tileIdx = T / NUM_WIDTH;
 
     int idx = elts_per_block * B + tileIdx;
 
@@ -126,11 +229,11 @@ ec_sum_all(var *X, const var *Y, size_t n)
     }
 }
 
-static constexpr size_t threads_per_block = 256;
+static constexpr size_t threads_per_block = 128;
 
 template< typename EC, int C, int R >
 void
-ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t N)
+ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t N, bool test)
 {
     cudaStreamCreate(&strm);
 
@@ -141,6 +244,7 @@ ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *
 
     ec_multiexp_straus<EC, C, R><<< nblocks, threads_per_block, 0, strm>>>(out, multiples, scalars, N);
 
+if(!test){
     size_t r = n & 1, m = n / 2;
     for ( ; m != 0; r = m & 1, m >>= 1) {
         nblocks = (m * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
@@ -149,6 +253,16 @@ ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *
         if (r)
             ec_sum_all<EC><<<1, threads_per_block, 0, strm>>>(out, out + 2*m*pt_limbs, 1);
     }
+} else {
+    var *result;
+    cudaMalloc(&result, EC::NELTS * ELT_BYTES * nblocks);
+    size_t sMem = 32 * EC::NELTS * ELT_BYTES;
+    //two runs of the kernel, better efficiency
+    deviceReduceKernelSecond<EC><<<nblocks, threads_per_block, 0, strm>>>(result, out, n);
+    deviceReduceKernelSecond<EC><<<1, nblocks, 0, strm>>>(out, result, nblocks);
+
+    cudaFree(result);
+}
 }
 
 template< typename EC >
@@ -157,10 +271,15 @@ ec_reduce(cudaStream_t &strm, var *X, const var *w, size_t n)
 {
     cudaStreamCreate(&strm);
 
-    size_t nblocks = (n * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
+    size_t nblocks = (n + threads_per_block - 1) / threads_per_block;
 
-    // FIXME: Only works on Pascal and later.
-    //auto grid = cg::this_grid();
+    var *result;
+    cudaMalloc(&result, EC::NELTS * ELT_BYTES * (nblocks + 1));
+
+    //two runs of the kernel, better efficiency
+
+    size_t sMem = 32 * EC::NELTS * ELT_BYTES;
+#ifdef old
     ec_multiexp<EC><<< nblocks, threads_per_block, 0, strm>>>(X, w, n);
 
     static constexpr size_t pt_limbs = EC::NELTS * ELT_LIMBS;
@@ -175,6 +294,11 @@ ec_reduce(cudaStream_t &strm, var *X, const var *w, size_t n)
         // TODO: Not sure this is really necessary.
         //grid.sync();
     }
+#else
+    deviceReduceKernel<EC><<<nblocks, threads_per_block, sMem, strm>>>(result, X, w, n);
+    deviceReduceKernelSecond<EC><<<1, nblocks, sMem, strm>>>(X, result, nblocks);
+#endif
+    cudaFree(result);
 }
 
 static inline double as_mebibytes(size_t n) {

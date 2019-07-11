@@ -123,6 +123,7 @@ void run_prover(
     static constexpr int R = 32;
     static constexpr int C = 5;
     FILE *preprocessed_file = fopen(preprocessed_path, "r");
+    //FILE *inputs_file = fopen(input_path, "r");
 
     size_t space = ((m + 1) + R - 1) / R;
 
@@ -159,12 +160,18 @@ void run_prover(
 
     auto t_gpu = t;
 
-    cudaStream_t sA, sB1, sB2, sL;
-
+    cudaStream_t sB1, sB2, sL;
+//#define straus
+#ifdef straus
     //ec_reduce_straus<ECp, C, R>(sA, out_A.get(), A_mults.get(), w, m + 1);
-    ec_reduce_straus<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1);
-    ec_reduce_straus<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1);
-    ec_reduce_straus<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
+    ec_reduce_straus<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1, true);
+    ec_reduce_straus<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1, false);
+    ec_reduce_straus<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1, false);
+#else
+    ec_reduce<ECp>(sB1, B1_mults.get(), w, m + 1);
+    ec_reduce<ECpe>(sB2, B2_mults.get(), w, m + 1);
+    ec_reduce<ECp>(sL, L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
+#endif
     print_time(t, "gpu launch");
 
     G1 *evaluation_At = B::multiexp_G1(B::input_w(inputs), B::params_A(params), m + 1);
@@ -183,17 +190,29 @@ void run_prover(
     cudaDeviceSynchronize();
     //cudaStreamSynchronize(sA);
     //G1 *evaluation_At = B::read_pt_ECp(out_A.get());
-
+#ifdef straus
     cudaStreamSynchronize(sB1);
     G1 *evaluation_Bt1 = B::read_pt_ECp(out_B1.get());
 
     cudaStreamSynchronize(sB2);
     G2 *evaluation_Bt2 = B::read_pt_ECpe(out_B2.get());
+    
+    cudaStreamSynchronize(sL);
+    G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());    
+#else
+    cudaStreamSynchronize(sB1);
+    G1 *evaluation_Bt1 = B::read_pt_ECp(B1_mults.get());
+
+    cudaStreamSynchronize(sB2);
+    G2 *evaluation_Bt2 = B::read_pt_ECpe(B2_mults.get());
 
     cudaStreamSynchronize(sL);
-    G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());
-
+    G1 *evaluation_Lt = B::read_pt_ECp(L_mults.get());
+#endif
     print_time(t_gpu, "gpu e2e");
+    B::print_G1(evaluation_Bt1);
+    B::print_G2(evaluation_Bt2);
+    B::print_G1(evaluation_Lt);
 
     auto scaled_Bt1 = B::G1_scale(B::input_r(inputs), evaluation_Bt1);
     auto Lt1_plus_scaled_Bt1 = B::G1_add(evaluation_Lt, scaled_Bt1);
@@ -207,6 +226,7 @@ void run_prover(
 
     print_time(t_main, "Total time from input to output: ");
 
+    
     //cudaStreamDestroy(sA);
     cudaStreamDestroy(sB1);
     cudaStreamDestroy(sB2);
