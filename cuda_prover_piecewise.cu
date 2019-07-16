@@ -154,7 +154,7 @@ void run_prover(
 
     cudaStream_t sB1, sB2, sL;
 
-#ifdef straus
+#ifdef straus //here
     ec_reduce_straus<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1);
     ec_reduce_straus<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1);
     ec_reduce_straus<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
@@ -174,8 +174,6 @@ void run_prover(
     G1 *evaluation_Ht = B::multiexp_G1(coefficients_for_H, H, d);
 
     cudaDeviceSynchronize();
-
-//#ifdef straus
     cudaStreamSynchronize(sB1);
     G1 *evaluation_Bt1 = B::read_pt_ECp(out_B1.get());
 
@@ -183,17 +181,7 @@ void run_prover(
     G2 *evaluation_Bt2 = B::read_pt_ECpe(out_B2.get());
     
     cudaStreamSynchronize(sL);
-    G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());    
-/*#else
-    cudaStreamSynchronize(sB1);
-    G1 *evaluation_Bt1 = B::read_pt_ECp(B1_mults.get());
-
-    cudaStreamSynchronize(sB2);
-    G2 *evaluation_Bt2 = B::read_pt_ECpe(B2_mults.get());
-
-    cudaStreamSynchronize(sL);
-    G1 *evaluation_Lt = B::read_pt_ECp(L_mults.get());
-#endif*/
+    G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());
 
     B::print_G1(evaluation_Bt1);
     B::print_G2(evaluation_Bt2);
@@ -240,13 +228,13 @@ int main(int argc, char **argv) {
             run_prover<mnt6753_libsnark>(params_path, input_path, output_path, "MNT6753_preprocessed");
         }
     } else if (mode == "preprocess") {
-        #if 0
-            if (curve == "MNT4753") {
-                run_preprocess<mnt4753_libsnark>(params_path);
-            } else if (curve == "MNT6753") {
-                run_preprocess<mnt4753_libsnark>(params_path);
-            }
-        #endif
+#if 0
+    if (curve == "MNT4753") {
+        run_preprocess<mnt4753_libsnark>(params_path);
+    } else if (curve == "MNT6753") {
+        run_preprocess<mnt4753_libsnark>(params_path);
+    }
+#endif
     }
 
     return 0;
