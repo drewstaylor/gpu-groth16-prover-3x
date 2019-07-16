@@ -76,8 +76,6 @@ ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t 
     }
 }
 
-//#define NUM_WIDTH 16
-
 template <typename EC>
 __inline__ __device__
 EC shfl_down(EC x, int offset){
@@ -183,8 +181,6 @@ __global__ void
 ec_multiexp(var *X, const var *W, size_t n)
 {
     int T = threadIdx.x, B = blockIdx.x, D = blockDim.x;
-    //int elts_per_block = D / NUM_WIDTH;
-    //int tileIdx = T / NUM_WIDTH;
     int elts_per_block = D / BIG_WIDTH;
     int tileIdx = T / BIG_WIDTH;
 

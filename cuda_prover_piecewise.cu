@@ -183,9 +183,9 @@ void run_prover(
     cudaStreamSynchronize(sL);
     G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());
 
-    B::print_G1(evaluation_Bt1);
-    B::print_G2(evaluation_Bt2);
-    B::print_G1(evaluation_Lt);
+    //B::print_G1(evaluation_Bt1);
+    //B::print_G2(evaluation_Bt2);
+    //B::print_G1(evaluation_Lt);
 
     auto scaled_Bt1 = B::G1_scale(B::input_r(inputs), evaluation_Bt1);
     auto Lt1_plus_scaled_Bt1 = B::G1_add(evaluation_Lt, scaled_Bt1);
