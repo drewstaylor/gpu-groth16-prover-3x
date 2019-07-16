@@ -162,15 +162,15 @@ void run_prover(
 
     cudaStream_t sB1, sB2, sL;
 
-//#ifdef straus
+#ifdef straus
     ec_reduce_straus<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1);
     ec_reduce_straus<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1);
     ec_reduce_straus<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
-/*#else
+#else
     ec_reduce<ECp>(sB1, B1_mults.get(), w, m + 1);
     ec_reduce<ECpe>(sB2, B2_mults.get(), w, m + 1);
     ec_reduce<ECp>(sL, L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
-#endif*/
+#endif
 
     G1 *evaluation_At = B::multiexp_G1(B::input_w(inputs), B::params_A(params), m + 1);
 
@@ -183,7 +183,7 @@ void run_prover(
 
     cudaDeviceSynchronize();
 
-//#ifdef straus
+#ifdef straus
     cudaStreamSynchronize(sB1);
     G1 *evaluation_Bt1 = B::read_pt_ECp(out_B1.get());
 
@@ -192,7 +192,7 @@ void run_prover(
     
     cudaStreamSynchronize(sL);
     G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());    
-/*#else
+#else
     cudaStreamSynchronize(sB1);
     G1 *evaluation_Bt1 = B::read_pt_ECp(B1_mults.get());
 
@@ -201,7 +201,7 @@ void run_prover(
 
     cudaStreamSynchronize(sL);
     G1 *evaluation_Lt = B::read_pt_ECp(L_mults.get());
-#endif*/
+#endif
     B::print_G1(evaluation_Bt1);
     B::print_G2(evaluation_Bt2);
     B::print_G1(evaluation_Lt);
@@ -231,30 +231,30 @@ void run_prover(
 }
 
 int main(int argc, char **argv) {
-  setbuf(stdout, NULL);
-  std::string curve(argv[1]);
-  std::string mode(argv[2]);
+    setbuf(stdout, NULL);
+    std::string curve(argv[1]);
+    std::string mode(argv[2]);
+  
+    const char *params_path = argv[3];
+  
+    if (mode == "compute") {
+        const char *input_path = argv[4];
+        const char *output_path = argv[5];
+  
+        if (curve == "MNT4753") {
+            run_prover<mnt4753_libsnark>(params_path, input_path, output_path, "MNT4753_preprocessed");
+        } else if (curve == "MNT6753") {
+            run_prover<mnt6753_libsnark>(params_path, input_path, output_path, "MNT6753_preprocessed");
+        }
+    } else if (mode == "preprocess") {
+        #if 0
+            if (curve == "MNT4753") {
+                run_preprocess<mnt4753_libsnark>(params_path);
+            } else if (curve == "MNT6753") {
+                run_preprocess<mnt4753_libsnark>(params_path);
+            }
+        #endif
+    }
 
-  const char *params_path = argv[3];
-
-  if (mode == "compute") {
-      const char *input_path = argv[4];
-      const char *output_path = argv[5];
-
-      if (curve == "MNT4753") {
-          run_prover<mnt4753_libsnark>(params_path, input_path, output_path, "MNT4753_preprocessed");
-      } else if (curve == "MNT6753") {
-          run_prover<mnt6753_libsnark>(params_path, input_path, output_path, "MNT6753_preprocessed");
-      }
-  } else if (mode == "preprocess") {
-#if 0
-      if (curve == "MNT4753") {
-          run_preprocess<mnt4753_libsnark>(params_path);
-      } else if (curve == "MNT6753") {
-          run_preprocess<mnt4753_libsnark>(params_path);
-      }
-#endif
-  }
-
-  return 0;
+    return 0;
 }
