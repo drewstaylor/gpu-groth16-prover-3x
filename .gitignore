@@ -6,3 +6,4 @@ build
 main
 generate_parameters
 cuda_prover_piecewise
+*.log

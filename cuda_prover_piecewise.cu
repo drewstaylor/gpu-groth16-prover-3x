@@ -161,22 +161,18 @@ void run_prover(
     auto t_gpu = t;
 
     cudaStream_t sB1, sB2, sL;
-//#define straus
-#ifdef straus
-    //ec_reduce_straus<ECp, C, R>(sA, out_A.get(), A_mults.get(), w, m + 1);
-    ec_reduce_straus<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1, true);
-    ec_reduce_straus<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1, false);
-    ec_reduce_straus<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1, false);
-#else
+
+//#ifdef straus
+    ec_reduce_straus<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1);
+    ec_reduce_straus<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1);
+    ec_reduce_straus<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
+/*#else
     ec_reduce<ECp>(sB1, B1_mults.get(), w, m + 1);
     ec_reduce<ECpe>(sB2, B2_mults.get(), w, m + 1);
     ec_reduce<ECp>(sL, L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
-#endif
-    print_time(t, "gpu launch");
+#endif*/
 
     G1 *evaluation_At = B::multiexp_G1(B::input_w(inputs), B::params_A(params), m + 1);
-    //G1 *evaluation_Bt1 = B::multiexp_G1(B::input_w(inputs), B::params_B1(params), m + 1);
-    //G2 *evaluation_Bt2 = B::multiexp_G2(B::input_w(inputs), B::params_B2(params), m + 1);
 
     // Do calculations relating to H on CPU after having set the GPU in
     // motion
@@ -185,12 +181,9 @@ void run_prover(
         compute_H<B>(d, B::input_ca(inputs), B::input_cb(inputs), B::input_cc(inputs));
     G1 *evaluation_Ht = B::multiexp_G1(coefficients_for_H, H, d);
 
-    print_time(t, "cpu 1");
-
     cudaDeviceSynchronize();
-    //cudaStreamSynchronize(sA);
-    //G1 *evaluation_At = B::read_pt_ECp(out_A.get());
-#ifdef straus
+
+//#ifdef straus
     cudaStreamSynchronize(sB1);
     G1 *evaluation_Bt1 = B::read_pt_ECp(out_B1.get());
 
@@ -199,7 +192,7 @@ void run_prover(
     
     cudaStreamSynchronize(sL);
     G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());    
-#else
+/*#else
     cudaStreamSynchronize(sB1);
     G1 *evaluation_Bt1 = B::read_pt_ECp(B1_mults.get());
 
@@ -208,8 +201,7 @@ void run_prover(
 
     cudaStreamSynchronize(sL);
     G1 *evaluation_Lt = B::read_pt_ECp(L_mults.get());
-#endif
-    print_time(t_gpu, "gpu e2e");
+#endif*/
     B::print_G1(evaluation_Bt1);
     B::print_G2(evaluation_Bt2);
     B::print_G1(evaluation_Lt);
@@ -218,16 +210,8 @@ void run_prover(
     auto Lt1_plus_scaled_Bt1 = B::G1_add(evaluation_Lt, scaled_Bt1);
     auto final_C = B::G1_add(evaluation_Ht, Lt1_plus_scaled_Bt1);
 
-    print_time(t, "cpu 2");
-
     B::groth16_output_write(evaluation_At, evaluation_Bt2, final_C, output_path);
 
-    print_time(t, "store");
-
-    print_time(t_main, "Total time from input to output: ");
-
-    
-    //cudaStreamDestroy(sA);
     cudaStreamDestroy(sB1);
     cudaStreamDestroy(sB2);
     cudaStreamDestroy(sL);
@@ -244,9 +228,6 @@ void run_prover(
     B::delete_vector_Fr(coefficients_for_H);
     B::delete_groth16_input(inputs);
     B::delete_groth16_params(params);
-
-    print_time(t, "cleanup");
-    print_time(beginning, "Total runtime (incl. file reads)");
 }
 
 int main(int argc, char **argv) {

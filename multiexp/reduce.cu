@@ -76,7 +76,7 @@ ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t 
     }
 }
 
-#define NUM_WIDTH 16
+//#define NUM_WIDTH 16
 
 template <typename EC>
 __inline__ __device__
@@ -183,8 +183,10 @@ __global__ void
 ec_multiexp(var *X, const var *W, size_t n)
 {
     int T = threadIdx.x, B = blockIdx.x, D = blockDim.x;
-    int elts_per_block = D / NUM_WIDTH;
-    int tileIdx = T / NUM_WIDTH;
+    //int elts_per_block = D / NUM_WIDTH;
+    //int tileIdx = T / NUM_WIDTH;
+    int elts_per_block = D / BIG_WIDTH;
+    int tileIdx = T / BIG_WIDTH;
 
     int idx = elts_per_block * B + tileIdx;
 
@@ -229,11 +231,12 @@ ec_sum_all(var *X, const var *Y, size_t n)
     }
 }
 
-static constexpr size_t threads_per_block = 128;
+//static constexpr size_t threads_per_block = 128;
+static constexpr size_t threads_per_block = 256;
 
 template< typename EC, int C, int R >
 void
-ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t N, bool test)
+ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t N)
 {
     cudaStreamCreate(&strm);
 
@@ -244,7 +247,8 @@ ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *
 
     ec_multiexp_straus<EC, C, R><<< nblocks, threads_per_block, 0, strm>>>(out, multiples, scalars, N);
 
-if(!test){
+    /*
+    // XXX LEGACY:
     size_t r = n & 1, m = n / 2;
     for ( ; m != 0; r = m & 1, m >>= 1) {
         nblocks = (m * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
@@ -253,16 +257,22 @@ if(!test){
         if (r)
             ec_sum_all<EC><<<1, threads_per_block, 0, strm>>>(out, out + 2*m*pt_limbs, 1);
     }
-} else {
+    */
+
+    // Here
+
     var *result;
     cudaMalloc(&result, EC::NELTS * ELT_BYTES * nblocks);
     size_t sMem = 32 * EC::NELTS * ELT_BYTES;
     //two runs of the kernel, better efficiency
-    deviceReduceKernelSecond<EC><<<nblocks, threads_per_block, 0, strm>>>(result, out, n);
-    deviceReduceKernelSecond<EC><<<1, nblocks, 0, strm>>>(out, result, nblocks);
+    //deviceReduceKernelSecond<EC><<<nblocks, threads_per_block, 0, strm>>>(result, out, n);
+    //deviceReduceKernel<EC><<<nblocks, threads_per_block, sMem, strm>>>(result, X, w, n);
+    //deviceReduceKernelSecond<EC><<<1, nblocks, sMem, strm>>>(X, result, nblocks);
+    deviceReduceKernel<EC><<<nblocks, threads_per_block, 0, strm>>>(result, out, n);
+    deviceReduceKernelSecond<EC><<<1, nblocks, sMem, strm>>>(out, result, nblocks);
+    //deviceReduceKernelSecond<EC><<<1, nblocks, 0, strm>>>(out, result, nblocks);
 
     cudaFree(result);
-}
 }
 
 template< typename EC >
