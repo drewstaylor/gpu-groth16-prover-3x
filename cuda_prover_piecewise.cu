@@ -123,12 +123,8 @@ void run_prover(
     static constexpr int R = 32;
     static constexpr int C = 5;
     FILE *preprocessed_file = fopen(preprocessed_path, "r");
-    //FILE *inputs_file = fopen(input_path, "r");
 
     size_t space = ((m + 1) + R - 1) / R;
-
-    //auto A_mults = load_points_affine<ECp>(((1U << C) - 1)*(m + 1), preprocessed_file);
-    //auto out_A = allocate_memory(space * ECpe::NELTS * ELT_BYTES);
 
     auto B1_mults = load_points_affine<ECp>(((1U << C) - 1)*(m + 1), preprocessed_file);
     auto out_B1 = allocate_memory(space * ECpe::NELTS * ELT_BYTES);
@@ -179,7 +175,7 @@ void run_prover(
 
     cudaDeviceSynchronize();
 
-#ifdef straus
+//#ifdef straus
     cudaStreamSynchronize(sB1);
     G1 *evaluation_Bt1 = B::read_pt_ECp(out_B1.get());
 
@@ -188,7 +184,7 @@ void run_prover(
     
     cudaStreamSynchronize(sL);
     G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());    
-#else
+/*#else
     cudaStreamSynchronize(sB1);
     G1 *evaluation_Bt1 = B::read_pt_ECp(B1_mults.get());
 
@@ -197,7 +193,8 @@ void run_prover(
 
     cudaStreamSynchronize(sL);
     G1 *evaluation_Lt = B::read_pt_ECp(L_mults.get());
-#endif
+#endif*/
+
     B::print_G1(evaluation_Bt1);
     B::print_G2(evaluation_Bt2);
     B::print_G1(evaluation_Lt);

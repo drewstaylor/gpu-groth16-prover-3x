@@ -135,10 +135,10 @@ deviceReduceKernelSecond(var *X, const var *resIn, size_t n) {
     EC::set_zero(sum);
     if (idx < n) {
         EC x; 
-        //for(int i = idx; i < n; i += (blockDim.x * gridDim.x)){
+        for (int i = idx; i < n; i += (blockDim.x * gridDim.x)) {
             EC::load_jac(x, resIn + (idx * EC::NELTS * ELT_LIMBS));
             EC::add(sum, x, sum);            
-        //}
+        }
         sum = blockReduceSum<EC>(sum);
         
     }   
@@ -247,9 +247,8 @@ ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *
 
     ec_multiexp_straus<EC, C, R><<< nblocks, threads_per_block, 0, strm>>>(out, multiples, scalars, N);
 
-    /*
-    // XXX LEGACY:
     size_t r = n & 1, m = n / 2;
+
     for ( ; m != 0; r = m & 1, m >>= 1) {
         nblocks = (m * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
 
@@ -257,22 +256,6 @@ ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *
         if (r)
             ec_sum_all<EC><<<1, threads_per_block, 0, strm>>>(out, out + 2*m*pt_limbs, 1);
     }
-    */
-
-    // Here
-
-    var *result;
-    cudaMalloc(&result, EC::NELTS * ELT_BYTES * nblocks);
-    size_t sMem = 32 * EC::NELTS * ELT_BYTES;
-    //two runs of the kernel, better efficiency
-    //deviceReduceKernelSecond<EC><<<nblocks, threads_per_block, 0, strm>>>(result, out, n);
-    //deviceReduceKernel<EC><<<nblocks, threads_per_block, sMem, strm>>>(result, X, w, n);
-    //deviceReduceKernelSecond<EC><<<1, nblocks, sMem, strm>>>(X, result, nblocks);
-    deviceReduceKernel<EC><<<nblocks, threads_per_block, 0, strm>>>(result, out, n);
-    deviceReduceKernelSecond<EC><<<1, nblocks, sMem, strm>>>(out, result, nblocks);
-    //deviceReduceKernelSecond<EC><<<1, nblocks, 0, strm>>>(out, result, nblocks);
-
-    cudaFree(result);
 }
 
 template< typename EC >
@@ -284,9 +267,8 @@ ec_reduce(cudaStream_t &strm, var *X, const var *w, size_t n)
     size_t nblocks = (n + threads_per_block - 1) / threads_per_block;
 
     var *result;
+    
     cudaMalloc(&result, EC::NELTS * ELT_BYTES * (nblocks + 1));
-
-    //two runs of the kernel, better efficiency
 
     size_t sMem = 32 * EC::NELTS * ELT_BYTES;
 #ifdef old
@@ -301,8 +283,6 @@ ec_reduce(cudaStream_t &strm, var *X, const var *w, size_t n)
         ec_sum_all<EC><<<nblocks, threads_per_block, 0, strm>>>(X, X + m*pt_limbs, m);
         if (r)
             ec_sum_all<EC><<<1, threads_per_block, 0, strm>>>(X, X + 2*m*pt_limbs, 1);
-        // TODO: Not sure this is really necessary.
-        //grid.sync();
     }
 #else
     deviceReduceKernel<EC><<<nblocks, threads_per_block, sMem, strm>>>(result, X, w, n);
@@ -337,8 +317,8 @@ allocate_memory(size_t nbytes, int dbg = 0) {
         fprintf(stderr, "Failed to allocate enough device memory\n");
         abort();
     }
-    if (dbg)
-        print_meminfo(nbytes);
+    //if (dbg)
+        //print_meminfo(nbytes);
     return var_ptr(mem);
 }
 
