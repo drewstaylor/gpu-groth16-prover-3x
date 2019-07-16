@@ -147,8 +147,6 @@ void run_prover(
     fclose(params_file);
     print_time(t, "load params");
 
-    auto t_main = t;
-
     FILE *inputs_file = fopen(input_path, "r");
     auto w_ = load_scalars(m + 1, inputs_file);
     rewind(inputs_file);
@@ -157,8 +155,6 @@ void run_prover(
     print_time(t, "load inputs");
 
     const var *w = w_.get();
-
-    auto t_gpu = t;
 
     cudaStream_t sB1, sB2, sL;
 
