@@ -228,9 +228,9 @@ ec_sum_all(var *X, const var *Y, size_t n)
     }
 }
 
-static constexpr size_t threads_per_block = 256;
+static constexpr size_t threads_per_block = 512;
 
-template< typename EC, int C, int R >
+template< typename EC, int C, int R >//here
 void
 ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t N)
 {
