@@ -9,8 +9,8 @@
 
 // C is the size of the precomputation
 // R is the number of points we're handling per thread
-//template< typename EC, int C = 4, int RR = 8 >
-template< typename EC, int C = 32, int RR = 64 >
+//template< typename EC, int C = 32, int RR = 64 >
+template< typename EC, int C = 4, int RR = 8 >
 __global__ void
 ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t N)
 {
@@ -22,7 +22,6 @@ ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t 
 
     size_t n = (N + RR - 1) / RR;
     if (idx < n) {
-        // TODO: Treat remainder separately so R can remain a compile time constant
         size_t R = (idx < n - 1) ? RR : (N % RR);
 
         typedef typename EC::group_type Fr;
@@ -53,7 +52,6 @@ ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t 
 
             int q = i / digit::BITS, r = i % digit::BITS;
             for (int j = 0; j < R; ++j) {
-                //(scalars[j][q] >> r) & C_MASK
                 auto g = fixnum::layout();
                 var s = g.shfl(scalars[j].a, q);
                 var win = (s >> r) & C_MASK;
@@ -62,13 +60,12 @@ ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t 
                 // detect when window overlaps digit boundary
                 if (bottom_bits < C) {
                     
-                    s = g.shfl(scalars[j].a, q + 1); //here
+                    s = g.shfl(scalars[j].a, q + 1);
                     
                     win |= (s << bottom_bits) & C_MASK;
                 }
                 if (win > 0) {
                     EC m;
-                    //EC::add(x, x, multiples[win - 1][j]);
                     EC::load_affine(m, multiples + ((win-1)*N + j)*AFF_POINT_LIMBS);
                     EC::mixed_add(x, x, m);
                 }
@@ -93,89 +90,6 @@ EC shfl_down(EC x, int offset){
 
     EC::load_jac(result, res);
     return result;
-}
-
-template <typename EC>
-__inline__ __device__
-EC warpReduceSum(EC x) {
-    #pragma unroll
-    for (int offset = warpSize/2; offset > 0; offset /= 2) {
-        EC y = shfl_down<EC>(x, offset);
-        EC::add(x, x, y);
-    }
-    return x;
-}
-
-template <typename EC>
-__inline__ __device__
-EC blockReduceSum(EC x) {
-    static __shared__ EC sMem[32];
-    int lane = threadIdx.x % warpSize;
-    int warpId = threadIdx.x / warpSize;
-    x = warpReduceSum<EC>(x); 
-    if (lane==0) sMem[warpId]=x;
-    __syncthreads();
-    if(threadIdx.x < blockDim.x / warpSize)
-        x = sMem[lane];
-    else 
-        EC::set_zero(x);
-    if (warpId==0) x = warpReduceSum<EC>(x);
-    return x;
-}
-
-template <typename EC>
-__global__ void
-deviceReduceKernelSecond(var *X, const var *resIn, size_t n) { 
-    int T = threadIdx.x, B = blockIdx.x, D = blockDim.x;
-    int elts_per_block = D / BIG_WIDTH;
-    int tileIdx = T / BIG_WIDTH;
-    int idx = elts_per_block * B + tileIdx;
-
-    EC sum;
-    EC::set_zero(sum);
-    if (idx < n) {
-        EC x; 
-        for (int i = idx; i < n; i += (blockDim.x * gridDim.x)) {
-            EC::load_jac(x, resIn + (idx * EC::NELTS * ELT_LIMBS));
-            EC::add(sum, x, sum);            
-        }
-        sum = blockReduceSum<EC>(sum);
-        
-    }   
-    if (threadIdx.x==0) // Store the end result
-            EC::store_jac(X + (blockIdx.x * EC::NELTS * ELT_LIMBS), sum); 
-}
-
-template <typename EC>
-__global__ void 
-deviceReduceKernel(var *result, var *X, const var *W, size_t n) {
-    int T = threadIdx.x, B = blockIdx.x, D = blockDim.x;
-    int elts_per_block = D / BIG_WIDTH;
-    int tileIdx = T / BIG_WIDTH;
-    int idx = elts_per_block * B + tileIdx;
-
-    EC sum;
-    EC::set_zero(sum);
-    if (idx < n) {
-        typedef typename EC::group_type Fr;
-        EC x; Fr w; EC sum;
-        EC::set_zero(sum);
-        int i = idx;
-        //for(int i = idx; i < n; i += (blockDim.x * gridDim.x * BIG_WIDTH)){
-            int x_off = i * EC::NELTS * ELT_LIMBS;
-            int w_off = i * ELT_LIMBS;
-
-            EC::load_affine(x, X + x_off);
-            Fr::load(w, W + w_off);
-
-            Fr::from_monty(w, w);
-            EC::mul(sum, w.a, x);
-            //EC::add(sum, x, sum);            
-        //}
-        sum = blockReduceSum<EC>(sum);
-    }
-    if (threadIdx.x==0)
-        EC::store_jac(result + (blockIdx.x * EC::NELTS * ELT_LIMBS), sum);
 }
 
 template< typename EC >
@@ -229,33 +143,9 @@ ec_sum_all(var *X, const var *Y, size_t n)
     }
 }
 
-//static constexpr size_t threads_per_block = 256;
+static constexpr size_t threads_per_block = 256;
 //static constexpr size_t threads_per_block = 512;
-static constexpr size_t threads_per_block = 2048;
-
-template< typename EC, int C, int R >//here
-void
-ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t N)
-{
-    cudaStreamCreate(&strm);
-
-    static constexpr size_t pt_limbs = EC::NELTS * ELT_LIMBS;
-    size_t n = (N + R - 1) / R;
-
-    size_t nblocks = (n * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
-
-    ec_multiexp_straus<EC, C, R><<< nblocks, threads_per_block, 0, strm>>>(out, multiples, scalars, N);
-
-    size_t r = n & 1, m = n / 2;
-
-    for ( ; m != 0; r = m & 1, m >>= 1) {
-        nblocks = (m * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
-
-        ec_sum_all<EC><<<nblocks, threads_per_block, 0, strm>>>(out, out + m*pt_limbs, m);
-        if (r)
-            ec_sum_all<EC><<<1, threads_per_block, 0, strm>>>(out, out + 2*m*pt_limbs, 1);
-    }
-}
+//static constexpr size_t threads_per_block = 2048;
 
 template< typename EC, int C, int R >
 void

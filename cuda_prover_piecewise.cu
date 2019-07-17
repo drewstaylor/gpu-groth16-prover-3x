@@ -154,20 +154,15 @@ void run_prover(
 
     cudaStream_t sB1, sB2, sL;
 
-/*#ifdef straus //here
-    ec_reduce_straus<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1);
-    ec_reduce_straus<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1);
-    ec_reduce_straus<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
-#else*/
     ec_reduce<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1);
     ec_reduce<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1);
     ec_reduce<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
-//#endif
+
 
     G1 *evaluation_At = B::multiexp_G1(B::input_w(inputs), B::params_A(params), m + 1);
 
-    // Do calculations relating to H on CPU after having set the GPU in
-    // motion
+    // Do calculations relating to H on CPU 
+    // after having set the GPU in motion
     auto H = B::params_H(params);
     auto coefficients_for_H = compute_H<B>(d, B::input_ca(inputs), B::input_cb(inputs), B::input_cc(inputs));
     G1 *evaluation_Ht = B::multiexp_G1(coefficients_for_H, H, d);
