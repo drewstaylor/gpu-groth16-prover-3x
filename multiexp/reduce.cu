@@ -149,9 +149,9 @@ static constexpr size_t threads_per_block = 256;
 
 template< typename EC, int C, int R >
 void
-ec_reduce(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t N) //here
+ec_reduce(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t N)
 {
-    cudaStreamCreate(&strm);
+    cudaStreamCreateWithFlags(&strm);
 
     static constexpr size_t pt_limbs = EC::NELTS * ELT_LIMBS;
     size_t n = (N + R - 1) / R;
