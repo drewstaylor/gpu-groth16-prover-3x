@@ -229,7 +229,8 @@ ec_sum_all(var *X, const var *Y, size_t n)
 }
 
 //static constexpr size_t threads_per_block = 512;
-static constexpr size_t threads_per_block = 2048;
+//static constexpr size_t threads_per_block = 2048;
+static constexpr size_t threads_per_block = 256;
 
 template< typename EC, int C, int R >//here
 void
