@@ -262,7 +262,7 @@ ec_reduce(cudaStream_t &strm, var *out, const var *multiples, const var *scalars
 
     size_t nblocks = (n * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
 
-    ec_multiexp_straus<EC, C, R><<< nblocks, threads_per_block, 0, strm>>>(out, multiples, scalars, N);
+    ec_multiexp_straus<EC, C, R><<< nblocks, threads_per_block, 0, strm>>>(out, multiples, scalars, n);
 
     var *result;
     
