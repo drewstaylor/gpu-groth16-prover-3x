@@ -270,7 +270,7 @@ ec_reduce(cudaStream_t &strm, var *out, const var *multiples, const var *scalars
 
     size_t sMem = 32 * EC::NELTS * ELT_BYTES;
 
-    deviceReduceKernel<EC><<<nblocks, threads_per_block, sMem, strm>>>(result, out, w, n);
+    deviceReduceKernel<EC><<<nblocks, threads_per_block, sMem, strm>>>(result, out, multiples, n);
     deviceReduceKernelSecond<EC><<<1, nblocks, sMem, strm>>>(out, result, nblocks);
 
     cudaFree(result);
