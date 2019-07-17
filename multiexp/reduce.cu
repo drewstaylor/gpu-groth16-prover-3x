@@ -255,25 +255,27 @@ ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *
 }
 
 template< typename EC, int C, int R >
-void
-ec_reduce(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t n) //here
+__device__ void
+ec_reduce(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t N) //here
 {
     cudaStreamCreate(&strm);
 
+    static constexpr size_t pt_limbs = EC::NELTS * ELT_LIMBS;
+    size_t n = (N + R - 1) / R;
+
     size_t nblocks = (n * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
 
-    ec_multiexp_straus<EC, C, R><<< nblocks, threads_per_block, 0, strm>>>(out, multiples, scalars, n);
+    ec_multiexp_straus<EC, C, R><<< nblocks, threads_per_block, 0, strm>>>(out, multiples, scalars, N);
 
-    var *result;
-    
-    cudaMalloc(&result, EC::NELTS * ELT_BYTES * (nblocks + 1));
+    size_t r = n & 1, m = n / 2;
 
-    size_t sMem = 32 * EC::NELTS * ELT_BYTES;
+    for ( ; m != 0; r = m & 1, m >>= 1) {
+        nblocks = (m * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
 
-    deviceReduceKernel<EC><<<nblocks, threads_per_block, sMem, strm>>>(result, out, multiples, n);
-    deviceReduceKernelSecond<EC><<<1, nblocks, sMem, strm>>>(out, result, nblocks);
-
-    cudaFree(result);
+        ec_sum_all<EC><<<nblocks, threads_per_block, 0, strm>>>(out, out + m*pt_limbs, m);
+        if (r)
+            ec_sum_all<EC><<<1, threads_per_block, 0, strm>>>(out, out + 2*m*pt_limbs, 1);
+    }    
 }
 
 static inline double as_mebibytes(size_t n) {
