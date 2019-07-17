@@ -38,7 +38,6 @@ ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t 
         }
 
         const var *multiples = multiples_ + m_off;
-        // TODO: Consider loading multiples and/or scalars into shared memory
 
         // i is smallest multiple of C such that i > 753
         int i = C * ((753 + C - 1) / C); // C * ceiling(753/C)
@@ -61,7 +60,9 @@ ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t 
                 int bottom_bits = digit::BITS - r;
                 // detect when window overlaps digit boundary
                 if (bottom_bits < C) {
-                    s = g.shfl(scalars[j].a, q + 1);
+                    
+                    s = g.shfl(scalars[j].a, q + 1); //here
+                    
                     win |= (s << bottom_bits) & C_MASK;
                 }
                 if (win > 0) {
@@ -227,7 +228,6 @@ ec_sum_all(var *X, const var *Y, size_t n)
     }
 }
 
-//static constexpr size_t threads_per_block = 128;
 static constexpr size_t threads_per_block = 256;
 
 template< typename EC, int C, int R >
@@ -254,36 +254,25 @@ ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *
     }
 }
 
-template< typename EC >
+template< typename EC, int C, int R >
 void
-ec_reduce(cudaStream_t &strm, var *X, const var *w, size_t n)
+ec_reduce(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t n) //here
 {
     cudaStreamCreate(&strm);
 
-    size_t nblocks = (n + threads_per_block - 1) / threads_per_block;
+    size_t nblocks = (n * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
+
+    ec_multiexp_straus<EC, C, R><<< nblocks, threads_per_block, 0, strm>>>(out, multiples, scalars, N);
 
     var *result;
     
     cudaMalloc(&result, EC::NELTS * ELT_BYTES * (nblocks + 1));
 
     size_t sMem = 32 * EC::NELTS * ELT_BYTES;
-#ifdef old
-    ec_multiexp<EC><<< nblocks, threads_per_block, 0, strm>>>(X, w, n);
 
-    static constexpr size_t pt_limbs = EC::NELTS * ELT_LIMBS;
+    deviceReduceKernel<EC><<<nblocks, threads_per_block, sMem, strm>>>(result, out, w, n);
+    deviceReduceKernelSecond<EC><<<1, nblocks, sMem, strm>>>(out, result, nblocks);
 
-    size_t r = n & 1, m = n / 2;
-    for ( ; m != 0; r = m & 1, m >>= 1) {
-        nblocks = (m * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
-
-        ec_sum_all<EC><<<nblocks, threads_per_block, 0, strm>>>(X, X + m*pt_limbs, m);
-        if (r)
-            ec_sum_all<EC><<<1, threads_per_block, 0, strm>>>(X, X + 2*m*pt_limbs, 1);
-    }
-#else
-    deviceReduceKernel<EC><<<nblocks, threads_per_block, sMem, strm>>>(result, X, w, n);
-    deviceReduceKernelSecond<EC><<<1, nblocks, sMem, strm>>>(X, result, nblocks);
-#endif
     cudaFree(result);
 }
 
