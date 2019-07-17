@@ -255,7 +255,7 @@ ec_reduce_straus(cudaStream_t &strm, var *out, const var *multiples, const var *
 }
 
 template< typename EC, int C, int R >
-__device__ void
+void
 ec_reduce(cudaStream_t &strm, var *out, const var *multiples, const var *scalars, size_t N) //here
 {
     cudaStreamCreate(&strm);
