@@ -324,16 +324,16 @@ void run_preprocess(const char *params_path, const char *output_path)
 
     FILE *output = fopen(output_path, "w");
 
-    printf("Processing A...\n");
-    output_g1_multiples<ppT>(C, params.A, output);
+//    printf("Processing A...\n");
+//  output_g1_multiples<ppT>(C, params.A, output);
     printf("Processing B1...\n");
     output_g1_multiples<ppT>(C, params.B1, output);
     printf("Processing B2...\n");
     output_g2_multiples<ppT>(C, params.B2, output);
     printf("Processing L...\n");
     output_g1_multiples<ppT>(C, params.L, output);
-    printf("Processing H...\n");
-    output_g1_multiples<ppT>(C, params.H, output);
+//    printf("Processing H...\n");
+//    output_g1_multiples<ppT>(C, params.H, output);
 
     fclose(output);
 }
