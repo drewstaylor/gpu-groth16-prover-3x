@@ -190,31 +190,46 @@ int run_prover(
     // End reading of parameters and input
 
     libff::enter_block("Call to r1cs_gg_ppzksnark_prover");
-
-    std::vector<Fr<ppT>> coefficients_for_H = compute_H<ppT>(
-        parameters.d,
-        ca, cb, cc);
-
     libff::enter_block("Compute the proof");
     libff::enter_block("Multi-exponentiations");
 
     // Now the 5 multi-exponentiations
-    G1<ppT> evaluation_At = multiexp<G1<ppT>, Fr<ppT>>(
-        w.begin(), parameters.A.begin(), parameters.m + 1);
+    G1<ppT> evaluation_At, evaluation_Bt1, evaluation_Ht, evaluation_Lt;
+    G2<ppT> evaluation_Bt2;
+    #pragma omp parallel sections shared(evaluation_At, evaluation_Bt1, evaluation_Bt2, evaluation_Ht, evaluation_Lt)
+    {
+        #pragma omp section
+        {
+            evaluation_At = multiexp<G1<ppT>, Fr<ppT>>(
+                w.begin(), parameters.A.begin(), parameters.m + 1);
+        }
+        #pragma omp section
+        {
+            evaluation_Bt1 = multiexp<G1<ppT>, Fr<ppT>>(
+                w.begin(), parameters.B1.begin(), parameters.m + 1);
+        }
+        #pragma omp section
+        {
+            evaluation_Bt2 = multiexp<G2<ppT>, Fr<ppT>>(
+                w.begin(), parameters.B2.begin(), parameters.m + 1);
+        }
+        #pragma omp section
+        {
+            std::vector<Fr<ppT>> coefficients_for_H = compute_H<ppT>(
+                parameters.d,
+                ca, cb, cc);
 
-    G1<ppT> evaluation_Bt1 = multiexp<G1<ppT>, Fr<ppT>>(
-        w.begin(), parameters.B1.begin(), parameters.m + 1);
-
-    G2<ppT> evaluation_Bt2 = multiexp<G2<ppT>, Fr<ppT>>(
-        w.begin(), parameters.B2.begin(), parameters.m + 1);
-
-    G1<ppT> evaluation_Ht = multiexp<G1<ppT>, Fr<ppT>>(
-        coefficients_for_H.begin(), parameters.H.begin(), parameters.d);
-
-    G1<ppT> evaluation_Lt = multiexp<G1<ppT>, Fr<ppT>>(
-        w.begin() + primary_input_size + 1,
-        parameters.L.begin(),
-        parameters.m - 1);
+            evaluation_Ht = multiexp<G1<ppT>, Fr<ppT>>(
+                coefficients_for_H.begin(), parameters.H.begin(), parameters.d);
+        }
+        #pragma omp section
+        {
+            evaluation_Lt = multiexp<G1<ppT>, Fr<ppT>>(
+                w.begin() + primary_input_size + 1,
+                parameters.L.begin(),
+                parameters.m - 1);
+        }
+    }
 
     libff::G1<ppT> C = evaluation_Ht + evaluation_Lt + input.r * evaluation_Bt1; /*+ s *  g1_A  - (r * s) * pk.delta_g1; */
 
@@ -324,14 +339,14 @@ void run_preprocess(const char *params_path, const char *output_path)
 
     FILE *output = fopen(output_path, "w");
 
-//    printf("Processing A...\n");
-//    output_g1_multiples<ppT>(C, params.A, output);
+    // printf("Processing A...\n");
+    // output_g1_multiples<ppT>(C, params.A, output);
     printf("Processing B1...\n");
     output_g1_multiples<ppT>(C, params.B1, output);
     printf("Processing B2...\n");
     output_g2_multiples<ppT>(C, params.B2, output);
-    printf("Processing L...\n");
-    output_g1_multiples<ppT>(C, params.L, output);
+    // printf("Processing L...\n");
+    // output_g1_multiples<ppT>(C, params.L, output);
 //    printf("Processing H...\n");
 //    output_g1_multiples<ppT>(C, params.H, output);
 
@@ -409,7 +424,7 @@ void debug(
 
     r1cs_gg_ppzksnark_proof<ppT> proof1=
       r1cs_gg_ppzksnark_prover<ppT>(
-          pk, 
+          pk,
           primary_input,
           auxiliary_input);
     assert (r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(vk, primary_input, proof1) );
