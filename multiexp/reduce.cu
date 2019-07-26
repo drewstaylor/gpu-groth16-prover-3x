@@ -9,7 +9,7 @@
 
 // C is the size of the precomputation
 // R is the number of points we're handling per thread
-template< typename EC, int C = 4, int RR = 16 >
+template< typename EC, int C = 4, int RR = 8 >
 __global__ void
 ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t N)
 {
@@ -143,7 +143,8 @@ ec_sum_all(var *X, const var *Y, size_t n)
 }
 
 //static constexpr size_t threads_per_block = 1024;
-static constexpr size_t threads_per_block = 512;
+//static constexpr size_t threads_per_block = 512;
+static constexpr size_t threads_per_block = 256;
 
 template< typename EC, int C, int R >
 void
