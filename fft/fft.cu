@@ -38,7 +38,7 @@ void mnt4753_libsnark::domain_icosetFFT(
 // B::domain_cosetFFT(a, ca);
 // B::domain_icosetFFT(a, b);
 
-template<typename T>
+template<typename B>
 class CudaVector {
 private:
     T* m_begin;
@@ -113,8 +113,8 @@ __global__ void
 domain_iFFT(var *domain, const var *a)
 {
     //cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking);
-    T::CudaVector<FieldT> &data = *a->begin;
-    domain->data->iFFT(&data);
+    B::CudaVector &data = *a->begin;
+    *domain->data->iFFT(&data);
 }
 
 /*
