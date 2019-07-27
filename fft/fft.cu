@@ -110,11 +110,11 @@ static constexpr size_t threads_per_block = 512;
 
 template <typename B>
 __global__ void
-domain_iFFT(cudaStream_t &strm, var *domain, const var *a)
+domain_iFFT(var *domain, const var *a)
 {
-    cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking);
-    T::CudaVector<FieldT> &data = *a->data;
-    domain->data->iFFT(data);
+    //cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking);
+    T::CudaVector<FieldT> &data = *a->begin;
+    domain->data->iFFT(&data);
 }
 
 /*
