@@ -41,8 +41,8 @@ void mnt4753_libsnark::domain_icosetFFT(
 //static constexpr size_t threads_per_block = 1024;
 static constexpr size_t threads_per_block = 512;
 
-#define NX 256; // Size of transform 
-#define BATCH 10; // The number of transforms to do of size NX
+#define NX 256 // Size of transform 
+#define BATCH 10 // The number of transforms to do of size NX
 
 cufftHandle plan;
 
