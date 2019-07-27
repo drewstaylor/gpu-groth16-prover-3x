@@ -41,8 +41,8 @@ void mnt4753_libsnark::domain_icosetFFT(
 template<typename B>
 class CudaVector {
 private:
-    T* m_begin;
-    T* m_end;
+    B* m_begin;
+    B* m_end;
 
     size_t capacity;
     size_t length;
@@ -50,9 +50,9 @@ private:
     __device__ void expand() {
         capacity *= 2;
         size_t tempLength = (m_end - m_begin);
-        T* tempBegin = new T[capacity];
+        B* tempBegin = new B[capacity];
 
-        memcpy(tempBegin, m_begin, tempLength * sizeof(T));
+        memcpy(tempBegin, m_begin, tempLength * sizeof(B));
         delete[] m_begin;
         m_begin = tempBegin;
         m_end = m_begin + tempLength;
@@ -60,19 +60,19 @@ private:
     }
 public:
     __device__  explicit CudaVector() : length(0), capacity(16) {
-        m_begin = new T[capacity];
+        m_begin = new B[capacity];
         m_end = m_begin;
     }
 
-    __device__ T& operator[] (unsigned int index) {
+    __device__ B& operator[] (unsigned int index) {
         return *(m_begin + index);
     }
 
-    __device__ T* begin() {
+    __device__ B* begin() {
         return m_begin;
     }
     
-    __device__ T* end() {
+    __device__ B* end() {
         return m_end;
     }
 
@@ -81,19 +81,19 @@ public:
         m_begin = nullptr;
     }
 
-    __device__ void add(T t) {
+    __device__ void add(B t) {
 
         if ((m_end - m_begin) >= capacity) {
             expand();
         }
 
-        new (m_end) T(t);
+        new (m_end) B(t);
         m_end++;
         length++;
     }
 
-    __device__ T pop() {
-        T endElement = (*m_end);
+    __device__ B pop() {
+        B endElement = (*m_end);
         delete m_end;
         m_end--;
         return endElement;
