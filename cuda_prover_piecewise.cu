@@ -18,7 +18,7 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
                                  typename B::vector_Fr *cc) {
   auto domain = B::get_evaluation_domain(d + 1);
 
-  cudaStream_t G_ca;
+  //cudaStream_t G_ca;
 
   //typedef typename ec_type<B>::ECp ECp;
   //typedef typename B::G1 G1;
