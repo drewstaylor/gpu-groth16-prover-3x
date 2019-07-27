@@ -53,9 +53,11 @@ domain_iFFT(var *domain, var *a)
     // FFT data type
     //cufftComplex *data = a;
     cufftComplex *data;
+    int input_mem_size = sizeof(cufftComplex) * NX * BATCH;
 
     // Memory allocation
-    cudaMalloc((void**) &data, sizeof(cufftComplex) * NX * BATCH);
+    //cudaMalloc((void**)&data, sizeof(cufftComplex)*NX*BATCH);
+    cudaMalloc((void **)&data, input_mem_size);
 
     if (cudaGetLastError() != cudaSuccess) {
         fprintf(stderr, "Cuda error: Failed to allocate\n");
