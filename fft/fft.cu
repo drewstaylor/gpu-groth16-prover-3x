@@ -41,7 +41,7 @@ void mnt4753_libsnark::domain_icosetFFT(
 /**
  * An evaluation domain.
  */
-template<typename FieldT, T>
+template<typename FieldT, T = CudaVector>
 class evaluation_domain {
 public:
 
@@ -67,7 +67,7 @@ public:
     /**
      * Compute the inverse FFT, over the domain S, of the vector a.
      */
-    virtual void iFFT(T::CudaVector<FieldT> &a) = 0;
+    virtual void iFFT(T::CudaVector &a) = 0;
 
     /**
      * Compute the FFT, over the domain g*S, of the vector a.
