@@ -88,7 +88,7 @@ public:
      * The output is a vector (b_{0},...,b_{m-1})
      * where b_{i} is the evaluation of L_{i,S}(z) at z = t.
     */
-    virtual T::CudaVector<FieldT> evaluate_all_lagrange_polynomials(const FieldT &t) = 0;
+    T::CudaVector<FieldT> evaluate_all_lagrange_polynomials(const FieldT &t) = 0;
 
     /**
      * Evaluate the vanishing polynomial of S at the field element t.
