@@ -172,15 +172,19 @@ public:
     }
 };
 
+//here
+//static constexpr size_t threads_per_block = 1024;
+static constexpr size_t threads_per_block = 512;
+
 template <typename B>
 __global__ void
-domain_iFFT(FieldT::evaluation_domain var *domain, T::CudaVector<FieldT> var *a)
+domain_iFFT(cudaStream_t &strm, FieldT::evaluation_domain var *domain, const var *a)
 {
+    cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking);
     T::CudaVector<FieldT> &data = *a->data;
     domain->data->iFFT(data);
 }
 
-//here
 template <typename B>
 __global__ void
 domain_cosetFFT(FieldT::evaluation_domain var *domain, T::CudaVector<FieldT> var *a)
