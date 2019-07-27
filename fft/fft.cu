@@ -38,83 +38,43 @@ void mnt4753_libsnark::domain_icosetFFT(
 // B::domain_cosetFFT(a, ca);
 // B::domain_icosetFFT(a, b);
 
-template<typename B>
-class CudaVector {
-private:
-    B* m_begin;
-    B* m_end;
-
-    size_t capacity;
-    size_t length;
-    
-    __device__ void expand() {
-        capacity *= 2;
-        size_t tempLength = (m_end - m_begin);
-        B* tempBegin = new B[capacity];
-
-        memcpy(tempBegin, m_begin, tempLength * sizeof(B));
-        delete[] m_begin;
-        m_begin = tempBegin;
-        m_end = m_begin + tempLength;
-        length = static_cast<size_t>(m_end - m_begin);
-    }
-public:
-    __device__  explicit CudaVector() : length(0), capacity(16) {
-        m_begin = new B[capacity];
-        m_end = m_begin;
-    }
-
-    __device__ B& operator[] (unsigned int index) {
-        return *(m_begin + index);
-    }
-
-    __device__ B* begin() {
-        return m_begin;
-    }
-    
-    __device__ B* end() {
-        return m_end;
-    }
-
-    __device__ ~CudaVector() {
-        delete[] m_begin;
-        m_begin = nullptr;
-    }
-
-    __device__ void add(B t) {
-
-        if ((m_end - m_begin) >= capacity) {
-            expand();
-        }
-
-        new (m_end) B(t);
-        m_end++;
-        length++;
-    }
-
-    __device__ B pop() {
-        B endElement = (*m_end);
-        delete m_end;
-        m_end--;
-        return endElement;
-    }
-
-    __device__ size_t getSize() {
-        return length;
-    }
-};
-
-//here
 //static constexpr size_t threads_per_block = 1024;
 static constexpr size_t threads_per_block = 512;
 
+#define NX 256;
+#define BATCH 10;
+
+cufftHandle plan;
+
 template <typename B>
 __global__ void
-domain_iFFT(var *domain, const var *a)
+domain_iFFT(var *domain, const var *a) 
 {
-    //cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking);
-    //B::CudaVector &data = (*a)->begin;
-    //(*domain)->data->iFFT(&data);
+    // FFT data type
+    cufftComplex *data = a;
+
+    // Memory allocation
+    cudaMalloc((void**) &data, sizeof(cufftComplex) * NX * BATCH);
+
+    if (cudaGetLastError() != cudaSuccess) {
+        fprintf(stderr, "Cuda error: Failed to allocate\n");
+        return;
+    }
+
+    // FFT plan creation
+    if (cufftPlan1d(&plan, NX, CUFFT_C2C, BATCH) != CUFFT_SUCCESS) {
+        fprintf(stderr, "Cuda error: Plan creation failed");
+        return;
+    }
+
+    // FFT execution
+    if (cufftExecC2C(plan, data, data, CUFFT_INVERSE)) {
+        fprintf(stderr, "Cuda error: ExecC2C failed");
+        return;
+    }
+
+    cufftDestroy(plan);
+    cudaFree(data);
 }
 
 /*

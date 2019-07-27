@@ -25,7 +25,7 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
   //typedef typename B::get_evaluation_domain Bt;
 
   B::domain_iFFT(domain, ca);
-  //domain_iFFT<B>(G_ca, domain, ca); //here
+  //domain_iFFT<B>(G_ca, ca); //here
 
   B::domain_iFFT(domain, cb);
 
