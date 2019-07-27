@@ -5,6 +5,7 @@
 
 #include <prover_reference_functions.hpp>
 
+#include "fft/fft.cu"
 #include "multiexp/reduce.cu"
 
 // This is where all the FFTs happen
@@ -17,11 +18,22 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
                                  typename B::vector_Fr *cc) {
   auto domain = B::get_evaluation_domain(d + 1);
 
+  cudaStream_t G_ca;
+
+  //typedef typename ec_type<B>::ECp ECp;
+  //typedef typename B::G1 G1;
+  //typedef typename B::get_evaluation_domain Bt;
+
   B::domain_iFFT(domain, ca);
+  domain_iFFT<B>(domain, ca); //here
+
   B::domain_iFFT(domain, cb);
 
   B::domain_cosetFFT(domain, ca);
   B::domain_cosetFFT(domain, cb);
+
+  cudaDeviceSynchronize();
+  cudaStreamSynchronize(G_ca);
 
   // Use ca to store H
   auto H_tmp = ca;
@@ -45,6 +57,10 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
   m = B::domain_get_m(domain);
   typename B::vector_Fr *H_res = B::vector_Fr_zeros(m + 1);
   B::vector_Fr_copy_into(H_tmp, H_res, m);
+
+  // Cleanup
+  cudaStreamDestroy(G_ca);
+
   return H_res;
 }
 
