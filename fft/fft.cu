@@ -113,8 +113,8 @@ __global__ void
 domain_iFFT(var *domain, const var *a)
 {
     //cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking);
-    B::CudaVector data = *a->begin;
-    *domain->data->iFFT(data);
+    B::CudaVector &data = *a->begin;
+    *domain->data->iFFT(&data);
 }
 
 /*
