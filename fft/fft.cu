@@ -117,9 +117,10 @@ domain_iFFT(cudaStream_t &strm, var *domain, const var *a)
     domain->data->iFFT(data);
 }
 
+/*
 template <typename B>
 __global__ void
-domain_cosetFFT(FieldT::evaluation_domain var *domain, T::CudaVector<FieldT> var *a)
+domain_cosetFFT(var *domain, const var *a)
 {
     // XXX TODO: write / convert multiplicative_generator
     //domain->data->cosetFFT(*a->data, Fr<mnt4753_pp>::multiplicative_generator);
@@ -127,8 +128,9 @@ domain_cosetFFT(FieldT::evaluation_domain var *domain, T::CudaVector<FieldT> var
 
 template <typename B>
 __global__ void
-domain_icosetFFT(FieldT::evaluation_domain var *domain, T::CudaVector<FieldT> var *a)
+domain_icosetFFT(var *domain, const var *a)
 {
     // XXX TODO: write / convert multiplicative_generator
     //domain->data->icosetFFT(*a->data, Fr<mnt4753_pp>::multiplicative_generator);
 }
+*/
