@@ -59,7 +59,7 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
   B::vector_Fr_copy_into(H_tmp, H_res, m);
 
   // Cleanup
-  cudaStreamDestroy(G_ca);
+  //cudaStreamDestroy(G_ca);
 
   return H_res;
 }
