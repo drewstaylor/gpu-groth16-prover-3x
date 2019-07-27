@@ -32,8 +32,8 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
   B::domain_cosetFFT(domain, ca);
   B::domain_cosetFFT(domain, cb);
 
-  cudaDeviceSynchronize();
-  cudaStreamSynchronize(G_ca);
+  //cudaDeviceSynchronize();
+  //cudaStreamSynchronize(G_ca);
 
   // Use ca to store H
   auto H_tmp = ca;
