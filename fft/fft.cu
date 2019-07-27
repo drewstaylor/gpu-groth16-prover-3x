@@ -41,17 +41,18 @@ void mnt4753_libsnark::domain_icosetFFT(
 //static constexpr size_t threads_per_block = 1024;
 static constexpr size_t threads_per_block = 512;
 
-#define NX 256;
-#define BATCH 10;
+#define NX 256; // Size of transform 
+#define BATCH 10; // The number of transforms to do of size NX
 
 cufftHandle plan;
 
 template <typename B>
 __global__ void
-domain_iFFT(var *domain, const var *a) 
+domain_iFFT(var *domain, var *a) 
 {
     // FFT data type
-    cufftComplex *data = a;
+    //cufftComplex *data = a;
+    cufftComplex *data;
 
     // Memory allocation
     cudaMalloc((void**) &data, sizeof(cufftComplex) * NX * BATCH);
