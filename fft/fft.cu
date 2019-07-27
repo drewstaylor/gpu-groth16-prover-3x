@@ -72,12 +72,12 @@ public:
     /**
      * Compute the FFT, over the domain g*S, of the vector a.
      */
-    virtual void cosetFFT(T::CudaVector<FieldT> &a, const FieldT &g) = 0;
+    //virtual void cosetFFT(T::CudaVector<FieldT> &a, const FieldT &g) = 0;
 
     /**
      * Compute the inverse FFT, over the domain g*S, of the vector a.
      */
-    virtual void icosetFFT(T::CudaVector<FieldT> &a, const FieldT &g) = 0;
+    //virtual void icosetFFT(T::CudaVector<FieldT> &a, const FieldT &g) = 0;
 
     /**
      * Evaluate all Lagrange polynomials.
