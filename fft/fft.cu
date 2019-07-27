@@ -38,76 +38,7 @@ void mnt4753_libsnark::domain_icosetFFT(
 // B::domain_cosetFFT(a, ca);
 // B::domain_icosetFFT(a, b);
 
-/**
- * An evaluation domain.
- */
-template<typename FieldT, T = CudaVector>
-class evaluation_domain {
-public:
-
-    const size_t m;
- 
-    /**
-     * Construct an evaluation domain S of size m, if possible.
-     *
-     * (See the function get_evaluation_domain below.)
-     */
-    evaluation_domain(const size_t m) : m(m) {};
-
-    /**
-     * Get the idx-th element in S.
-     */
-    //virtual FieldT get_domain_element(const size_t idx) = 0;
- 
-    /**
-     * Compute the FFT, over the domain S, of the vector a.
-     */
-    //virtual void FFT(T::CudaVector<FieldT> &a) = 0;
-
-    /**
-     * Compute the inverse FFT, over the domain S, of the vector a.
-     */
-    virtual void iFFT(T::CudaVector &a) = 0;
-
-    /**
-     * Compute the FFT, over the domain g*S, of the vector a.
-     */
-    //virtual void cosetFFT(T::CudaVector<FieldT> &a, const FieldT &g) = 0;
-
-    /**
-     * Compute the inverse FFT, over the domain g*S, of the vector a.
-     */
-    //virtual void icosetFFT(T::CudaVector<FieldT> &a, const FieldT &g) = 0;
-
-    /**
-     * Evaluate all Lagrange polynomials.
-     *
-     * The inputs are:
-     * - an integer m
-     * - an element t
-     * The output is a vector (b_{0},...,b_{m-1})
-     * where b_{i} is the evaluation of L_{i,S}(z) at z = t.
-    */
-    //virtual std::vector<FieldT> evaluate_all_lagrange_polynomials(const FieldT &t) = 0;
-    //virtual CudaVector<FieldT> evaluate_all_lagrange_polynomials(const FieldT &t) = 0;
-
-    /**
-     * Evaluate the vanishing polynomial of S at the field element t.
-    */
-    //virtual FieldT compute_vanishing_polynomial(const FieldT &t) = 0;
- 
-    /**
-     * Add the coefficients of the vanishing polynomial of S to the coefficients of the polynomial H.
-     */
-    //virtual void add_poly_Z(const FieldT &coeff, CudaVector<FieldT> &H) = 0;
-
-    /**
-     * Multiply by the evaluation, on a coset of S, of the inverse of the vanishing polynomial of S.
-     */
-    //virtual void divide_by_Z_on_coset(CudaVector<FieldT> &P) = 0;
- };
-
- template<typename T>
+template<typename T>
 class CudaVector {
 private:
     T* m_begin;
@@ -172,6 +103,75 @@ public:
         return length;
     }
 };
+
+/**
+ * An evaluation domain.
+ */
+template<typename FieldT, typename T>
+class evaluation_domain {
+public:
+
+    const size_t m;
+ 
+    /**
+     * Construct an evaluation domain S of size m, if possible.
+     *
+     * (See the function get_evaluation_domain below.)
+     */
+    evaluation_domain(const size_t m) : m(m) {};
+
+    /**
+     * Get the idx-th element in S.
+     */
+    //virtual FieldT get_domain_element(const size_t idx) = 0;
+ 
+    /**
+     * Compute the FFT, over the domain S, of the vector a.
+     */
+    //virtual void FFT(T::CudaVector<FieldT> &a) = 0;
+
+    /**
+     * Compute the inverse FFT, over the domain S, of the vector a.
+     */
+    virtual void iFFT(T::CudaVector &a) = 0;
+
+    /**
+     * Compute the FFT, over the domain g*S, of the vector a.
+     */
+    //virtual void cosetFFT(T::CudaVector<FieldT> &a, const FieldT &g) = 0;
+
+    /**
+     * Compute the inverse FFT, over the domain g*S, of the vector a.
+     */
+    //virtual void icosetFFT(T::CudaVector<FieldT> &a, const FieldT &g) = 0;
+
+    /**
+     * Evaluate all Lagrange polynomials.
+     *
+     * The inputs are:
+     * - an integer m
+     * - an element t
+     * The output is a vector (b_{0},...,b_{m-1})
+     * where b_{i} is the evaluation of L_{i,S}(z) at z = t.
+    */
+    //virtual std::vector<FieldT> evaluate_all_lagrange_polynomials(const FieldT &t) = 0;
+    //virtual CudaVector<FieldT> evaluate_all_lagrange_polynomials(const FieldT &t) = 0;
+
+    /**
+     * Evaluate the vanishing polynomial of S at the field element t.
+    */
+    //virtual FieldT compute_vanishing_polynomial(const FieldT &t) = 0;
+ 
+    /**
+     * Add the coefficients of the vanishing polynomial of S to the coefficients of the polynomial H.
+     */
+    //virtual void add_poly_Z(const FieldT &coeff, CudaVector<FieldT> &H) = 0;
+
+    /**
+     * Multiply by the evaluation, on a coset of S, of the inverse of the vanishing polynomial of S.
+     */
+    //virtual void divide_by_Z_on_coset(CudaVector<FieldT> &P) = 0;
+ };
 
 //here
 //static constexpr size_t threads_per_block = 1024;
