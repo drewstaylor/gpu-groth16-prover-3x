@@ -9,7 +9,7 @@ static constexpr size_t threads_per_block = 512;
 // https://docs.nvidia.com/cuda/cufft/index.html#cufft-code-examples
 template <typename B>
 __global__ void
-domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, const var *aY) 
+domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len) 
 {
     // FFT init types
     cufftHandle plan;
