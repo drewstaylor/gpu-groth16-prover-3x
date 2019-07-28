@@ -132,8 +132,8 @@ void run_prover(
     auto B2_mults = load_points_affine<ECpe>(((1U << C) - 1)*(m + 1), preprocessed_file);
     auto out_B2 = allocate_memory(space * ECpe::NELTS * ELT_BYTES);
 
-    auto L_mults = load_points_affine<ECp>(((1U << C) - 1)*(m - 1), preprocessed_file);
-    auto out_L = allocate_memory(space * ECpe::NELTS * ELT_BYTES);
+    // auto L_mults = load_points_affine<ECp>(((1U << C) - 1)*(m - 1), preprocessed_file);
+    // auto out_L = allocate_memory(space * ECpe::NELTS * ELT_BYTES);
 
     fclose(preprocessed_file);
 
@@ -158,18 +158,36 @@ void run_prover(
 
     cudaStream_t sB1, sB2, sL;
 
-    ec_reduce<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1);
-    ec_reduce<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1);
-    ec_reduce<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
+    ec_reduce_straus<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1);
+    ec_reduce_straus<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1);
+    // ec_reduce_straus<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
     print_time(t, "gpu launch");
 
-    G1 *evaluation_At = B::multiexp_G1(B::input_w(inputs), B::params_A(params), m + 1);
-
-    // Do calculations relating to H on CPU 
-    // after having set the GPU in motion
-    auto H = B::params_H(params);
-    auto coefficients_for_H = compute_H<B>(d, B::input_ca(inputs), B::input_cb(inputs), B::input_cc(inputs));
-    G1 *evaluation_Ht = B::multiexp_G1(coefficients_for_H, H, d);
+    G1 *evaluation_At, *evaluation_Lt, *evaluation_Ht;
+    #pragma omp parallel sections lastprivate(*evaluation_At, *evaluation_Lt, *evaluation_Ht)
+    {
+        #pragma omp section
+        {
+            evaluation_At = B::multiexp_G1(B::input_w(inputs), B::params_A(params), m + 1);
+        }
+        #pragma omp section
+        {
+            evaluation_Lt = B::multiexp_G1(
+                B::vector_Fr_offset(B::input_w(inputs), primary_input_size + 1),
+                B::params_L(params), m - 1);
+        }
+        #pragma omp section
+        {
+            // Do calculations relating to H on CPU after having set the GPU in
+            // motion
+            auto H = B::params_H(params);
+            auto coefficients_for_H =
+            compute_H<B>(d, B::input_ca(inputs), B::input_cb(inputs), B::input_cc(inputs));
+            evaluation_Ht = B::multiexp_G1(coefficients_for_H, H, d);
+            B::delete_vector_G1(H);
+            B::delete_vector_Fr(coefficients_for_H);
+        }
+    }
 
     print_time(t, "cpu 1");
 
@@ -179,9 +197,9 @@ void run_prover(
 
     cudaStreamSynchronize(sB2);
     G2 *evaluation_Bt2 = B::read_pt_ECpe(out_B2.get());
-    
-    cudaStreamSynchronize(sL);
-    G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());
+
+    // cudaStreamSynchronize(sL);
+    // G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());
 
     print_time(t_gpu, "gpu e2e");
 
@@ -199,9 +217,7 @@ void run_prover(
 
     cudaStreamDestroy(sB1);
     cudaStreamDestroy(sB2);
-    cudaStreamDestroy(sL);
-
-    B::delete_vector_G1(H);
+    // cudaStreamDestroy(sL);
 
     B::delete_G1(evaluation_At);
     B::delete_G1(evaluation_Bt1);
@@ -210,7 +226,6 @@ void run_prover(
     B::delete_G1(evaluation_Lt);
     B::delete_G1(scaled_Bt1);
     B::delete_G1(Lt1_plus_scaled_Bt1);
-    B::delete_vector_Fr(coefficients_for_H);
     B::delete_groth16_input(inputs);
     B::delete_groth16_params(params);
 
@@ -222,13 +237,13 @@ int main(int argc, char **argv) {
     setbuf(stdout, NULL);
     std::string curve(argv[1]);
     std::string mode(argv[2]);
-  
+
     const char *params_path = argv[3];
-  
+
     if (mode == "compute") {
         const char *input_path = argv[4];
         const char *output_path = argv[5];
-  
+
         if (curve == "MNT4753") {
             run_prover<mnt4753_libsnark>(params_path, input_path, output_path, "MNT4753_preprocessed");
         } else if (curve == "MNT6753") {
