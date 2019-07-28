@@ -6,6 +6,7 @@ static constexpr size_t threads_per_block = 512;
 
 #define NRANK_2D 2
 // XXX TODO: Add a cufftPlanMany() fn to allow for parellel iFFTs
+// https://docs.nvidia.com/cuda/cufft/index.html#cufft-code-examples
 template <typename B>
 __global__ void
 domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, const var *aY) 
@@ -30,11 +31,22 @@ domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, c
 
     cudaMallocPitch(&d_array, &pitch, N2 * sizeof(Complex), M2);
 
-    cudaMemcpy2D(d_array, pitch, h_input[0], host_orig_pitch, 
-        N2* sizeof(Complex), M2, cudaMemcpyHostToDevice);
+    cudaMallocPitch	(
+        void ** devPtr, // Pointer to allocated pitched device memory
+        size_t * pitch, // Pitch for allocation
+        size_t 	width,  // Requested pitched allocation width
+        size_t 	height  // Requested pitched allocation height
+    );
+
+    cudaMemcpy2D(d_array, pitch, h_input[0], host_orig_pitch, N2* sizeof(Complex), M2, cudaMemcpyHostToDevice);
     */
 
-    // Memory allocation
+    // GPU allocation and copy domain from CPU into data
+    size_t host_orig_pitch = NX * sizeof(cufftComplex);
+    size_t pitch;
+
+    cudaMallocPitch(&domain, &pitch, NX * sizeof(cufftComplex), NY);
+    cudaMemcpy2D(data, pitch, domain, host_orig_pitch, NX* sizeof(cufftComplex), NY, cudaMemcpyHostToDevice);
     cudaMalloc((void **)&data, input_mem_size);
 
     if (cudaGetLastError() != cudaSuccess) {
