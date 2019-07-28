@@ -13,13 +13,13 @@ domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, c
 {
     // FFT init types
     cufftHandle plan;
-    cufftComplex *data; // XXX: Or may need to create *data_in, *data_out TBD
+    cufftComplex *idata, *odata;
     cufftResult result;
     int NX = *ax_Len;
     int NY = *ay_Len;
-    int n[NRANK_2D] = {NX, NY};
+    //int n[NRANK_2D] = {NX, NY};
     
-    // GPU allocation and copy domain from CPU into data
+    // GPU allocation and copy domain from CPU into idata / odata
     int input_mem_size = sizeof(cufftComplex) * NX * NY;
     size_t host_orig_pitch = NX * sizeof(cufftComplex);
     size_t pitch;
@@ -43,8 +43,10 @@ domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, c
     );
     */
 
-    cudaMemcpy2D(&data, pitch, domain, host_orig_pitch, NX* sizeof(cufftComplex), NY, cudaMemcpyHostToDevice);
-    cudaMalloc((void **)&data, input_mem_size);
+    cudaMemcpy2D(&idata, pitch, domain, host_orig_pitch, NX* sizeof(cufftComplex), NY, cudaMemcpyHostToDevice);
+    cudaMemcpy2D(&odata, pitch, domain, host_orig_pitch, NX* sizeof(cufftComplex), NY, cudaMemcpyHostToDevice);
+    cudaMalloc((void **)&idata, input_mem_size);
+    cudaMalloc((void **)&odata, input_mem_size);
 
     if (cudaGetLastError() != cudaSuccess) {
         fprintf(stderr, "Cuda error: Failed to allocate\n");
@@ -58,7 +60,7 @@ domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, c
     }
 
     // FFT execution
-    result = cufftExecC2C(plan, data, data, CUFFT_INVERSE);
+    result = cufftExecC2C(plan, idata, odata, CUFFT_INVERSE);
     if (result != CUFFT_SUCCESS) {
         fprintf(stderr, "Cuda error: cufftExecC2C failed"); // Transformers: "More than meets the eye"
         return;
@@ -68,7 +70,7 @@ domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, c
     cudaMemcpy2D(
         domain, 
         host_orig_pitch, 
-        data, 
+        odata, 
         pitch, 
         NX* sizeof(cufftComplex), 
         NY, 
@@ -77,7 +79,8 @@ domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, c
 
     // Clean up
     cufftDestroy(plan);
-    cudaFree(data);
+    cudaFree(idata);
+    cudaFree(odata);
 }
 
 /*
