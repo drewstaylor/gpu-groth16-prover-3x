@@ -44,7 +44,7 @@ static constexpr size_t threads_per_block = 512;
 
 template <typename B>
 __global__ void
-domain_iFFT_single_batch(const int *ax_Len, const int *ay_Len, const var *aX, const var *aY) 
+domain_iFFT_single_batch(int *ax_Len, int *ay_Len, const var *aX, const var *aY) 
 {
     // FFT data type (init)
     cufftHandle plan;
@@ -64,7 +64,7 @@ domain_iFFT_single_batch(const int *ax_Len, const int *ay_Len, const var *aX, co
     }
 
     // FFT plan creation
-    if (cufftPlan2d(&plan, NX, CUFFT_C2C) != CUFFT_SUCCESS) {
+    if (cufftPlan2d(&plan, NX, NY, CUFFT_C2C) != CUFFT_SUCCESS) {
         fprintf(stderr, "Cuda error: Plan creation failed");
         return;
     }
