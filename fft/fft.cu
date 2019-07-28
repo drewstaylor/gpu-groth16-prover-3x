@@ -2,58 +2,37 @@
 #include <vector>
 #include <cufft.h>
 
-/*
-B::domain_iFFT(domain, ca);
-B::domain_iFFT(domain, cb);
-
-B::domain_cosetFFT(domain, ca);
-B::domain_cosetFFT(domain, cb);
-
-B::domain_iFFT(domain, cc);
-B::domain_cosetFFT(domain, cc);
-
-B::domain_icosetFFT(domain, H_tmp);
-
-
-
-void mnt4753_libsnark::domain_iFFT(mnt4753_libsnark::evaluation_domain *domain,
-                                   mnt4753_libsnark::vector_Fr *a) {
-  T::CudaVector<Fr<mnt4753_pp>> &data = *a->data;
-  domain->data->iFFT(data);
-}
-void mnt4753_libsnark::domain_cosetFFT(
-    mnt4753_libsnark::evaluation_domain *domain,
-    mnt4753_libsnark::vector_Fr *a) {
-  domain->data->cosetFFT(*a->data, Fr<mnt4753_pp>::multiplicative_generator);
-}
-void mnt4753_libsnark::domain_icosetFFT(
-    mnt4753_libsnark::evaluation_domain *domain,
-    mnt4753_libsnark::vector_Fr *a) {
-  domain->data->icosetFFT(*a->data, Fr<mnt4753_pp>::multiplicative_generator);
-}
-
-*/
-
-// B::domain_iFFT(a, b);
-// B::domain_cosetFFT(a, ca);
-// B::domain_icosetFFT(a, b);
-
 static constexpr size_t threads_per_block = 512;
 
 #define NRANK_2D 2
-
+// XXX TODO: Add a cufftPlanMany() fn to allow for parellel iFFTs
 template <typename B>
 __global__ void
-domain_iFFT_single_batch(int *ax_Len, int *ay_Len, const var *aX, const var *aY) 
+domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, const var *aY) 
 {
     // FFT data type (init)
     cufftHandle plan;
     cufftComplex *data;
+    cufftResult result;
     int NX = *ax_Len;
     int NY = *ay_Len;
     int n[NRANK_2D] = {NX, NY};
     
     int input_mem_size = sizeof(cufftComplex) * NX * NY;
+
+    // XXX TODO: copy host domain into cufftComplex *data
+    //here
+    /*
+    // allocate memory on device and copy h_input into d_array
+    Complex     *d_array;
+    size_t      host_orig_pitch = N2 * sizeof(Complex);
+    size_t      pitch;
+
+    cudaMallocPitch(&d_array, &pitch, N2 * sizeof(Complex), M2);
+
+    cudaMemcpy2D(d_array, pitch, h_input[0], host_orig_pitch, 
+        N2* sizeof(Complex), M2, cudaMemcpyHostToDevice);
+    */
 
     // Memory allocation
     cudaMalloc((void **)&data, input_mem_size);
@@ -70,10 +49,14 @@ domain_iFFT_single_batch(int *ax_Len, int *ay_Len, const var *aX, const var *aY)
     }
 
     // FFT execution
-    if (cufftExecC2C(plan, data, data, CUFFT_INVERSE)) {
+    result = cufftExecC2C(plan, data, data, CUFFT_INVERSE);
+    if (result != CUFFT_SUCCESS) {
         fprintf(stderr, "Cuda error: ExecC2C failed");
         return;
     }
+
+    // XXX TODO: copy device result to host like: cudaMemcpy2D(host_memory_address, host_destination_pitch, data, pitch, N2* sizeof(Complex), M2, cudaMemcpyDeviceToHost);
+    //here
 
     // Clean up
     cufftDestroy(plan);
