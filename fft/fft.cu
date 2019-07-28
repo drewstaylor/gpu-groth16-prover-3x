@@ -49,8 +49,8 @@ domain_iFFT_single_batch(int *ax_Len, int *ay_Len, const var *aX, const var *aY)
     // FFT data type (init)
     cufftHandle plan;
     cufftComplex *data;
-    int **NX = ax_Len;
-    int **NY = ay_Len;
+    int NX = *ax_Len;
+    int NY = *ay_Len;
     int n[NRANK_2D] = {NX, NY};
     
     int input_mem_size = sizeof(cufftComplex) * NX * NY;
