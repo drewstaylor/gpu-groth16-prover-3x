@@ -38,25 +38,24 @@ void mnt4753_libsnark::domain_icosetFFT(
 // B::domain_cosetFFT(a, ca);
 // B::domain_icosetFFT(a, b);
 
-//static constexpr size_t threads_per_block = 1024;
 static constexpr size_t threads_per_block = 512;
 
-#define NX 256 // Size of transform 
-#define BATCH 10 // The number of transforms to do of size NX
-
-cufftHandle plan;
+#define NRANK_2D 2
 
 template <typename B>
 __global__ void
-domain_iFFT(var *domain, var *a) 
+domain_iFFT_single_batch(const int *ax_Len, const int *ay_Len, const var *aX, const var *aY) 
 {
-    // FFT data type
-    //cufftComplex *data = a;
+    // FFT data type (init)
+    cufftHandle plan;
     cufftComplex *data;
-    int input_mem_size = sizeof(cufftComplex) * NX * BATCH;
+    int NX = ax_Len;
+    int NY = ay_Len;
+    int n[NRANK_2D] = {NX, NY};
+    
+    int input_mem_size = sizeof(cufftComplex) * NX * NY;
 
     // Memory allocation
-    //cudaMalloc((void**)&data, sizeof(cufftComplex)*NX*BATCH);
     cudaMalloc((void **)&data, input_mem_size);
 
     if (cudaGetLastError() != cudaSuccess) {
@@ -65,7 +64,7 @@ domain_iFFT(var *domain, var *a)
     }
 
     // FFT plan creation
-    if (cufftPlan1d(&plan, NX, CUFFT_C2C, BATCH) != CUFFT_SUCCESS) {
+    if (cufftPlan2d(&plan, NX, CUFFT_C2C) != CUFFT_SUCCESS) {
         fprintf(stderr, "Cuda error: Plan creation failed");
         return;
     }
@@ -76,6 +75,7 @@ domain_iFFT(var *domain, var *a)
         return;
     }
 
+    // Clean up
     cufftDestroy(plan);
     cudaFree(data);
 }

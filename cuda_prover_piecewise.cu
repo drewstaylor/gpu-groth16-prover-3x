@@ -18,22 +18,11 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
                                  typename B::vector_Fr *cc) {
   auto domain = B::get_evaluation_domain(d + 1);
 
-  //cudaStream_t G_ca;
-
-  //typedef typename ec_type<B>::ECp ECp;
-  //typedef typename B::G1 G1;
-  //typedef typename B::get_evaluation_domain Bt;
-
   B::domain_iFFT(domain, ca);
-  //domain_iFFT<B>(G_ca, ca); //here
-
   B::domain_iFFT(domain, cb);
 
   B::domain_cosetFFT(domain, ca);
   B::domain_cosetFFT(domain, cb);
-
-  //cudaDeviceSynchronize();
-  //cudaStreamSynchronize(G_ca);
 
   // Use ca to store H
   auto H_tmp = ca;
