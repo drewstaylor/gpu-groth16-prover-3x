@@ -43,7 +43,7 @@ domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, c
     );
     */
 
-    cudaMemcpy2D(data, pitch, domain, host_orig_pitch, NX* sizeof(cufftComplex), NY, cudaMemcpyHostToDevice);
+    cudaMemcpy2D(&data, pitch, domain, host_orig_pitch, NX* sizeof(cufftComplex), NY, cudaMemcpyHostToDevice);
     cudaMalloc((void **)&data, input_mem_size);
 
     if (cudaGetLastError() != cudaSuccess) {
