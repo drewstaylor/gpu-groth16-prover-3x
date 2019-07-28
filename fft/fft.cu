@@ -9,11 +9,11 @@ static constexpr size_t threads_per_block = 512;
 // https://docs.nvidia.com/cuda/cufft/index.html#cufft-code-examples
 template <typename B>
 __global__ void
-domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, const var *aY) 
+domain_iFFT_single_batch(var *domain, var *c, int *ax_Len, int *ay_Len, const var *aX, const var *aY) 
 {
     // FFT init types
     cufftHandle plan;
-    cufftComplex *data;
+    cufftComplex *data; // XXX: Or may need to create *data_in, *data_out TBD
     cufftResult result;
     int NX = *ax_Len;
     int NY = *ay_Len;
@@ -24,7 +24,25 @@ domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, c
     size_t host_orig_pitch = NX * sizeof(cufftComplex);
     size_t pitch;
 
-    cudaMallocPitch(&domain, &pitch, NX * sizeof(cufftComplex), NY);
+    cudaMallocPitch(
+        &domain, 
+        &pitch, 
+        NX * sizeof(cufftComplex),  // XXX: sizeof(cufftComplex) may need a custom typedef?
+        NY
+    );
+
+    /*
+    cudaMemcpy2D(
+        void* dst,                  // Destination memory address
+        size_t dpitch,              // Pitch of destination memory
+        const void* src,            // Source memory address
+        size_t spitch,              // Pitch of source memory
+        size_t width,               // Width of matrix transfer (columns in bytes)
+        size_t height,              // Height of matrix transfer (rows)
+        enum cudaMemcpyKind kind    // Type of transfer
+    );
+    */
+
     cudaMemcpy2D(data, pitch, domain, host_orig_pitch, NX* sizeof(cufftComplex), NY, cudaMemcpyHostToDevice);
     cudaMalloc((void **)&data, input_mem_size);
 
@@ -42,13 +60,20 @@ domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, c
     // FFT execution
     result = cufftExecC2C(plan, data, data, CUFFT_INVERSE);
     if (result != CUFFT_SUCCESS) {
-        fprintf(stderr, "Cuda error: ExecC2C failed");
+        fprintf(stderr, "Cuda error: cufftExecC2C failed"); // Transformers: "More than meets the eye"
         return;
     }
 
-    // XXX TODO: copy device result to host like: cudaMemcpy2D(host_memory_address, host_destination_pitch, data, pitch, N2* sizeof(Complex), M2, cudaMemcpyDeviceToHost);
-    //here
-
+    // Copy device result to host
+    cudaMemcpy2D(
+        domain, 
+        host_orig_pitch, 
+        data, 
+        pitch, 
+        NX* sizeof(cufftComplex), 
+        NY, 
+        cudaMemcpyDeviceToHost
+    );
 
     // Clean up
     cufftDestroy(plan);

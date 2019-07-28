@@ -18,6 +18,7 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
                                  typename B::vector_Fr *cc) {
   auto domain = B::get_evaluation_domain(d + 1);
 
+  // TODO: Parallelize these w/ fft.cu
   B::domain_iFFT(domain, ca);
   B::domain_iFFT(domain, cb);
   B::domain_iFFT(domain, cc);
