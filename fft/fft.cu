@@ -5,13 +5,13 @@
 static constexpr size_t threads_per_block = 512;
 
 #define NRANK_2D 2
-// XXX TODO: Add a cufftPlanMany() fn to allow for parellel iFFTs
+// XXX TODO: Use cufftPlanMany() in place of cufftPlan2d() to allow for parellel iFFTs
 // https://docs.nvidia.com/cuda/cufft/index.html#cufft-code-examples
 template <typename B>
 __global__ void
 domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, const var *aY) 
 {
-    // FFT data type (init)
+    // FFT init types
     cufftHandle plan;
     cufftComplex *data;
     cufftResult result;
@@ -19,29 +19,8 @@ domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, c
     int NY = *ay_Len;
     int n[NRANK_2D] = {NX, NY};
     
-    int input_mem_size = sizeof(cufftComplex) * NX * NY;
-
-    // XXX TODO: copy host domain into cufftComplex *data
-    //here
-    /*
-    // allocate memory on device and copy h_input into d_array
-    Complex     *d_array;
-    size_t      host_orig_pitch = N2 * sizeof(Complex);
-    size_t      pitch;
-
-    cudaMallocPitch(&d_array, &pitch, N2 * sizeof(Complex), M2);
-
-    cudaMallocPitch	(
-        void ** devPtr, // Pointer to allocated pitched device memory
-        size_t * pitch, // Pitch for allocation
-        size_t 	width,  // Requested pitched allocation width
-        size_t 	height  // Requested pitched allocation height
-    );
-
-    cudaMemcpy2D(d_array, pitch, h_input[0], host_orig_pitch, N2* sizeof(Complex), M2, cudaMemcpyHostToDevice);
-    */
-
     // GPU allocation and copy domain from CPU into data
+    int input_mem_size = sizeof(cufftComplex) * NX * NY;
     size_t host_orig_pitch = NX * sizeof(cufftComplex);
     size_t pitch;
 
@@ -69,6 +48,7 @@ domain_iFFT_single_batch(var *domain, int *ax_Len, int *ay_Len, const var *aX, c
 
     // XXX TODO: copy device result to host like: cudaMemcpy2D(host_memory_address, host_destination_pitch, data, pitch, N2* sizeof(Complex), M2, cudaMemcpyDeviceToHost);
     //here
+
 
     // Clean up
     cufftDestroy(plan);

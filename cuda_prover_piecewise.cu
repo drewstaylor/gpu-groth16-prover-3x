@@ -20,6 +20,7 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
 
   B::domain_iFFT(domain, ca);
   B::domain_iFFT(domain, cb);
+  B::domain_iFFT(domain, cc);
 
   B::domain_cosetFFT(domain, ca);
   B::domain_cosetFFT(domain, cb);
@@ -31,7 +32,6 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
   // for i in 0 to m: H_tmp[i] *= cb[i]
   B::vector_Fr_muleq(H_tmp, cb, m);
 
-  B::domain_iFFT(domain, cc);
   B::domain_cosetFFT(domain, cc);
 
   m = B::domain_get_m(domain);
@@ -166,7 +166,7 @@ void run_prover(
     ec_reduce<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1);
     ec_reduce<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1);
     ec_reduce<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
-    print_time(t, "gpu launch");
+    print_time(t, "gpu launch (ec_reduce)");
 
     G1 *evaluation_At = B::multiexp_G1(B::input_w(inputs), B::params_A(params), m + 1);
 
