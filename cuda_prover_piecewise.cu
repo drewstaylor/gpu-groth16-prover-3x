@@ -24,13 +24,13 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
   B::domain_iFFT(domain, cc);
 
   // Get vector lengths
-  int ca_len = ca.size(); // TODO: dispose of these gracefully
+  /*int ca_len = ca.size(); // TODO: dispose of these gracefully
   int cb_len = cb.size();
   int cc_len = cc.size();
 
   printf("ca length: ", ca_len);
   printf("cb length: ", cb_len);
-  printf("cc length: ", cc_len);
+  printf("cc length: ", cc_len);*/
 
 
   B::domain_cosetFFT(domain, ca);
