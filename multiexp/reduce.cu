@@ -2,10 +2,13 @@
 #include <vector>
 #include <chrono>
 #include <memory>
-#include <math.h> 
+#include <math.h>
 #include <cooperative_groups.h>
 
 #include "curves.cu"
+#include "sharedmem.cuh"
+
+namespace cg = cooperative_groups;
 
 // C is the size of the precomputation
 // R is the number of points we're handling per thread
@@ -58,9 +61,9 @@ ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t 
                 int bottom_bits = digit::BITS - r;
                 // detect when window overlaps digit boundary
                 if (bottom_bits < C) {
-                    
+
                     s = g.shfl(scalars[j].a, q + 1);
-                    
+
                     win |= (s << bottom_bits) & C_MASK;
                 }
                 if (win > 0) {
@@ -72,23 +75,6 @@ ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t 
         }
         EC::store_jac(out + out_off, x);
     }
-}
-
-template <typename EC>
-__inline__ __device__
-EC shfl_down(EC x, int offset){
-
-    var tmp[EC::NELTS * ELT_LIMBS];
-    var res[EC::NELTS * ELT_LIMBS];
-    EC result;
-
-    EC::store_jac(tmp, x);
-    #pragma unroll
-    for(int i = 0; i <  EC::NELTS * ELT_LIMBS; i++)
-        res[i] = __shfl_down_sync(__activemask(), tmp[i], offset);
-
-    EC::load_jac(result, res);
-    return result;
 }
 
 template< typename EC >
@@ -142,8 +128,121 @@ ec_sum_all(var *X, const var *Y, size_t n)
     }
 }
 
+template <typename EC>
+__inline__ __device__
+EC shfl_down(EC x, int offset){
+
+    var tmp[EC::NELTS * ELT_LIMBS];
+    var res[EC::NELTS * ELT_LIMBS];
+    EC result;
+
+    EC::store_jac(tmp, x);
+    #pragma unroll
+    for(int i = 0; i <  EC::NELTS * ELT_LIMBS; i++)
+        res[i] = __shfl_down_sync(__activemask(), tmp[i], offset);
+
+    EC::load_jac(result, res);
+    return result;
+}
+
+
+// Reduce using Brent's theorem
+template <typename EC, size_t blockSize>
+__global__ void
+ec_sum_all_brent(var *resOut, const var *resIn, size_t n) {
+  // Handle to thread block group
+  cg::thread_block cta = cg::this_thread_block();
+
+    // Shared mem size is determined by the host app at run time
+    SharedMemory<EC> smem;
+    EC* sdata = smem.getPointer();
+
+  // perform first level of reduction,
+  // reading from global memory, writing to shared memory
+  unsigned int tid = threadIdx.x;
+  unsigned int i = blockIdx.x * blockSize * 2 + threadIdx.x;
+  unsigned int gridSize = blockSize * 2 * gridDim.x;
+
+  int T = threadIdx.x, B = blockIdx.x, D = blockDim.x;
+  int elts_per_block = D / BIG_WIDTH;
+  int tileIdx = T / BIG_WIDTH;
+
+  i = elts_per_block * B + tileIdx;
+
+  EC sum;
+  EC::set_zero(sum);
+
+  // we reduce multiple elements per thread.  The number is determined by the
+  // number of active thread blocks (via gridDim).  More blocks will result
+  // in a larger gridSize and therefore fewer elements per thread
+  while (i < n) {
+      EC x;
+      EC::load_jac(x, resIn + (i * EC::NELTS * ELT_LIMBS));
+      EC::add(sum, x, sum);
+
+      // ensure we don't read out of bounds -- this is optimized away for powerOf2
+      // sized arrays
+      if (i + blockSize < n) {
+          EC::load_jac(x, resIn + ((i + blockSize) * EC::NELTS * ELT_LIMBS));
+          EC::add(sum, x, sum);
+      }
+
+      i += gridSize;
+  }
+
+  // each thread puts its local sum into shared memory
+  sdata[tid] = sum;
+  cg::sync(cta);
+
+  // do reduction in shared mem
+  if ((blockSize >= 512) && (tid < 256)) {
+      EC::add(sum, sum, sdata[tid + 256]);
+      sdata[tid] = sum;
+  }
+
+  cg::sync(cta);
+
+  if ((blockSize >= 256) && (tid < 128)) {
+    EC::add(sum, sum, sdata[tid + 128]);
+    sdata[tid] = sum;
+  }
+
+  cg::sync(cta);
+
+  if ((blockSize >= 128) && (tid < 64)) {
+      EC::add(sum, sum, sdata[tid + 64]);
+      sdata[tid] = sum;
+  }
+
+  cg::sync(cta);
+
+  cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
+
+  if (cta.thread_rank() < 32) {
+    // Fetch final intermediate sum from 2nd warp
+    if (blockSize >= 64) {
+        EC::add(sum, sum, sdata[tid + 32]);
+    }
+    // Reduce final warp using shuffle
+    for (int offset = tile32.size() / 2; offset > 0; offset /= 2) {
+        EC y = shfl_down<EC>(sum, offset);
+        EC::add(sum, sum, y);
+        // mySum += tile32.shfl_down(mySum, offset);
+    }
+  }
+
+  // write result for this block to global mem
+  if (cta.thread_rank() == 0) {
+      EC::store_jac(resOut + (blockIdx.x * EC::NELTS * ELT_LIMBS), sum);
+      // g_odata[blockIdx.x] = mySum;
+  }
+}
+
+
+
+
 //static constexpr size_t threads_per_block = 1024;
-static constexpr size_t threads_per_block = 512;
+static constexpr size_t threads_per_block = 256;
 
 template< typename EC, int C, int R >
 void
@@ -151,13 +250,15 @@ ec_reduce(cudaStream_t &strm, var *out, const var *multiples, const var *scalars
 {
     cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking);
 
-    static constexpr size_t pt_limbs = EC::NELTS * ELT_LIMBS;
     size_t n = (N + R - 1) / R;
 
     size_t nblocks = (n * BIG_WIDTH + threads_per_block - 1) / threads_per_block;
 
     ec_multiexp_straus<EC, C, R><<< nblocks, threads_per_block, 0, strm>>>(out, multiples, scalars, N);
 
+
+
+    static constexpr size_t pt_limbs = EC::NELTS * ELT_LIMBS;
     size_t r = n & 1, m = n / 2;
 
     for ( ; m != 0; r = m & 1, m >>= 1) {
@@ -166,7 +267,12 @@ ec_reduce(cudaStream_t &strm, var *out, const var *multiples, const var *scalars
         ec_sum_all<EC><<<nblocks, threads_per_block, 0, strm>>>(out, out + m*pt_limbs, m);
         if (r)
             ec_sum_all<EC><<<1, threads_per_block, 0, strm>>>(out, out + 2*m*pt_limbs, 1);
-    }    
+    }
+
+
+    // dim3 dimBlock(threads_per_block, 1, 1);
+    // dim3 dimGrid(nblocks, 1, 1);
+    // ec_sum_all_brent<EC, threads_per_block><<<dimGrid, dimBlock, 32, strm>>>(out, out, n);
 }
 
 static inline double as_mebibytes(size_t n) {
