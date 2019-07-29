@@ -89,13 +89,13 @@ __global__ void FFT_iteration(embedded_field* __restrict__ input_arr, embedded_f
 
 void naive_fft_driver(embedded_field* input_arr, embedded_field* output_arr, uint32_t arr_len, bool is_inverse_FFT = false)
 {
-	//first check that arr_len is a power of 2
+	// First check that arr_len is a power of 2
 
 	uint log_arr_len = BITS_PER_LIMB - __builtin_clz(arr_len) - 1;
 	std::cout << "Log arr len: " << log_arr_len << std::endl;
     assert(arr_len = (1 << log_arr_len));
 
-	//find optimal geometry
+	// Find optimal geometry
 
 	cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
@@ -104,23 +104,22 @@ void naive_fft_driver(embedded_field* input_arr, embedded_field* output_arr, uin
 	geometry FFT_shuffle_geometry = find_suitable_geometry(FFT_shuffle, 0, smCount);
 	geometry FFT_iter_geometry = find_suitable_geometry(FFT_iteration, 0, smCount);
 
-	//allocate additional memory
+	// Allocate additional memory
 
 	embedded_field* additional_device_memory = nullptr;
 	cudaError_t cudaStatus = cudaMalloc((void **)&additional_device_memory, arr_len * sizeof(embedded_field));
 	
-	//FFT shuffle;
+	// FFT shuffle;
 
 	embedded_field* temp_output_arr = (log_arr_len % 2 ? additional_device_memory : output_arr);
 	embedded_field* temp_input_arr = (log_arr_len % 2 ? output_arr : additional_device_memory);
 	FFT_shuffle<<<FFT_shuffle_geometry.gridSize, FFT_shuffle_geometry.blockSize>>>(input_arr, temp_output_arr, arr_len, log_arr_len);
 	
-	//FFT main cycle
+	// FFT main cycle
 
 	for (uint32_t step = 0; step < log_arr_len; step++)
 	{
-		//swap input and iutput arrs
-
+		// Swap input and iutput arrs
 		embedded_field* swap_arr = temp_input_arr;
 		temp_input_arr = temp_output_arr;
 		temp_output_arr = swap_arr;
@@ -128,18 +127,14 @@ void naive_fft_driver(embedded_field* input_arr, embedded_field* output_arr, uin
 		FFT_iteration<<<FFT_iter_geometry.gridSize, FFT_iter_geometry.blockSize>>>(temp_input_arr, temp_output_arr, arr_len, log_arr_len, step);
 	}
 
-	//clean_up
+	// Lil bit o' thee ol' clean_up
 	cudaFree(additional_device_memory);
 }
 
-
-//Bellman FFT-realization
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-
-//TODO: make the same things using shuffle instructions and shared memory
-
+/**
+ * Matter Labs / Bellman FFT-realization
+ */
+ // TODO: make the same things using shuffle instructions and shared memory
 DEVICE_FUNC void _basic_serial_radix2_FFT(embedded_field* arr, size_t log_arr_len, size_t omega_idx_coeff, bool is_inverse_FFT)
 {
 	size_t tid = threadIdx.x;
@@ -382,11 +377,7 @@ polynomial _polynomial_multiplication_on_fft(const polynomial& A, const polynomi
 #define POLY_MUL(X, Y) _polynomial_multiplication_on_fft(X, Y)
 
 
-//these drivers are used only for test purposes
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------
-
+// These drivers only for test purposes
 void naive_FFT_test_driver(uint256_g* A, uint256_g* B, uint256_g* C, size_t arr_len)
 {
 	naive_fft_driver(reinterpret_cast<embedded_field*>(A), reinterpret_cast<embedded_field*>(C), arr_len);
