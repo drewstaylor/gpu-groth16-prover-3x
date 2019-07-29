@@ -12,7 +12,7 @@ namespace cg = cooperative_groups;
 
 // C is the size of the precomputation
 // R is the number of points we're handling per thread
-template< typename EC, int C = 4, int RR = 16 >
+template< typename EC, int C = 4, int RR = 32 >
 __global__ void
 ec_multiexp_straus(var *out, const var *multiples_, const var *scalars_, size_t N)
 {

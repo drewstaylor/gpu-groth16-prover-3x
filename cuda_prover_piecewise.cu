@@ -120,7 +120,7 @@ void run_prover(
     typedef typename B::G1 G1;
     typedef typename B::G2 G2;
 
-    static constexpr int R = 16;
+    static constexpr int R = 32;
     static constexpr int C = 4;
     FILE *preprocessed_file = fopen(preprocessed_path, "r");
 
