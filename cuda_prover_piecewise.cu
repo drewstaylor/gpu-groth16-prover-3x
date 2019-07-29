@@ -5,7 +5,7 @@
 
 #include <prover_reference_functions.hpp>
 
-//#include "fft/fft.cu"
+#include "fft/fft.cu"
 #include "multiexp/reduce.cu"
 
 // This is where all the FFTs happen
