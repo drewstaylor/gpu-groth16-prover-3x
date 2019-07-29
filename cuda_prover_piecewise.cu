@@ -195,7 +195,7 @@ void run_prover(
 
     print_time(t, "cpu 1");
 
-    // cudaDeviceSynchronize();
+    cudaDeviceSynchronize();
 
     cudaStreamSynchronize(sB1);
     G1 *evaluation_Bt1 = B::read_pt_ECp(out_B1.get());
