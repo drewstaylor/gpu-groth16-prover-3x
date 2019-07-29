@@ -46,11 +46,7 @@ geometry find_suitable_geometry(T func, uint shared_memory_used, uint32_t smCoun
     return geometry{gridSize, blockSize};
 }
 
-//Naive FFT-realization
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-
+// Naive FFT-realization
 __global__ void FFT_shuffle(embedded_field* __restrict__ input_arr, embedded_field* __restrict__ output_arr, uint32_t arr_len, uint32_t log_arr_len)
 {
 	uint32_t  tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -107,9 +103,10 @@ void naive_fft_driver(embedded_field* input_arr, embedded_field* output_arr, uin
 	// Allocate additional memory
 
 	embedded_field* additional_device_memory = nullptr;
-	//cudaError_t cudaStatus = cudaMalloc((void **)&additional_device_memory, arr_len * sizeof(embedded_field));
+    cudaError_t cudaStatus = cudaMalloc((void **)&additional_device_memory, arr_len * sizeof(embedded_field));
 	
-	// FFT shuffle:
+	// FFT shuffle;
+
 	embedded_field* temp_output_arr = (log_arr_len % 2 ? additional_device_memory : output_arr);
 	embedded_field* temp_input_arr = (log_arr_len % 2 ? output_arr : additional_device_memory);
 	FFT_shuffle<<<FFT_shuffle_geometry.gridSize, FFT_shuffle_geometry.blockSize>>>(input_arr, temp_output_arr, arr_len, log_arr_len);
@@ -278,7 +275,7 @@ void advanced_fft_driver(embedded_field* input_arr, embedded_field* output_arr, 
 
 	// Allocate temporary memory
 	embedded_field* temp_memory = nullptr;
-	//cudaError_t cudaStatus = cudaMalloc((void **)&temp_memory, num_of_blocks * block_size * sizeof(embedded_field));
+	cudaError_t cudaStatus = cudaMalloc((void **)&temp_memory, num_of_blocks * block_size * sizeof(embedded_field));
 
 	_basic_parallel_radix2_FFT<<<kernel_geometry.gridSize, kernel_geometry.blockSize>>>(input_arr, output_arr, temp_memory,
 		log_arr_len, log_num_subblocks, is_inverse_FFT);
@@ -349,11 +346,11 @@ polynomial _polynomial_multiplication_on_fft(const polynomial& A, const polynomi
 
 	embedded_field* temp_memory1 = nullptr;
 	embedded_field* temp_memory2 = nullptr;
-	//cudaError_t cudaStatus;
+	cudaError_t cudaStatus;
 
-	//cudaStatus = cudaMalloc((void **)&temp_memory1, n * sizeof(embedded_field));
-	//cudaStatus = cudaMalloc((void **)&temp_memory2, n * sizeof(embedded_field));
-	//cudaStatus = cudaMalloc((void **)&C.coeffs, n * sizeof(embedded_field));
+	cudaStatus = cudaMalloc((void **)&temp_memory1, n * sizeof(embedded_field));
+	cudaStatus = cudaMalloc((void **)&temp_memory2, n * sizeof(embedded_field));
+	cudaStatus = cudaMalloc((void **)&C.coeffs, n * sizeof(embedded_field));
 	
 	cudaMemcpy(temp_memory1, A.coeffs, A.deg * sizeof(embedded_field), cudaMemcpyDeviceToDevice);
 	cudaMemset(temp_memory1 + A.deg, 0, (n - A.deg) *sizeof(embedded_field));

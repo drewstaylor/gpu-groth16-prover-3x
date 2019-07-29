@@ -5,7 +5,6 @@
 #include <assert.h>
 #include <type_traits>
 
-#ifdef __CUDACC__
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
 #define DEVICE_FUNC __device__
@@ -13,13 +12,6 @@
 #define DEVICE_VAR __device__
 #define HOST_DEVICE_VAR __host__ __device__
 #define CONST_MEMORY __constant__
-#else
-#define DEVICE_FUNC
-#define HOST_DEVICE_FUNC
-#define DEVICE_VAR
-#define HOST_DEVICE_VAR
-#define CONST_MEMORY
-#endif
 
 #define HALF_N 4
 #define N 8
@@ -68,9 +60,7 @@ struct uint128_with_carry_g
     uint32_t carry;
 };
 
-//NB: may be this should somehow help?
-//https://stackoverflow.com/questions/10297067/in-a-cuda-kernel-how-do-i-store-an-array-in-local-thread-memory
-
+// XXX TODO: https://stackoverflow.com/questions/10297067/in-a-cuda-kernel-how-do-i-store-an-array-in-local-thread-memory
 struct uint256_g
 {
     union
@@ -108,8 +98,7 @@ struct affine_point
     uint256_g y;
 };
 
-//this is a field embedded into a group of points on elliptic curve
-
+// This is a field embedded into a group of points on elliptic curve
 struct embedded_field
 {
 	uint256_g rep_;
@@ -126,11 +115,11 @@ struct embedded_field
 	DEVICE_FUNC operator uint256_g() const;
 	DEVICE_FUNC embedded_field operator-() const;
 	
-	//NB: for now we assume that highest possible limb bit is zero for the field modulus
+	// For now we assume that highest possible limb bit is zero for the field modulus
 	DEVICE_FUNC embedded_field& operator+=(const embedded_field& other);
 	DEVICE_FUNC embedded_field& operator-=(const embedded_field& other);
 	
-	//here we mean montgomery multiplication
+	// Here we mean montgomery multiplication
 	DEVICE_FUNC embedded_field& operator*=(const embedded_field& other);
 	
 	friend DEVICE_FUNC embedded_field operator+(const embedded_field& left, const embedded_field& right);
@@ -143,11 +132,7 @@ DEVICE_FUNC embedded_field operator-(const embedded_field& left, const embedded_
 DEVICE_FUNC embedded_field operator*(const embedded_field& left, const embedded_field& right);
 
 
-//miscellaneous helpful staff
-//------------------------------------------------------------------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------------------------------------------------------------------
-
+// Miscellaneous helpful staff :)
 DEVICE_FUNC inline bool get_bit(const uint256_g& x, uint32_t index)
 {
 	auto num = x.n[index / 32];
@@ -163,30 +148,24 @@ DEVICE_FUNC inline void set_bit(uint256_g& x, uint32_t index)
 	//SET_BIT(num, pos);
 }
 
-//initialization function
+// Init this badboy
 bool CUDA_init();
 void get_device_info();
 
 
 #ifdef __CUDACC__
 
-//sone global constants
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
+// Some global constants
+// XXX TODO: it's better to embed this constants at compile time rather than taking them from constant memory
+// seems like a way for later optimization
 
-//TODO: it's better to embed this constants at compile time rather than taking them from constant memory
-//SOunds like a way for optimization!
-
-//curve order field
-
+// Curve order field
 extern DEVICE_VAR CONST_MEMORY uint256_g EMBEDDED_FIELD_P; 
 extern DEVICE_VAR CONST_MEMORY uint256_g EMBEDDED_FIELD_R; 
 extern DEVICE_VAR CONST_MEMORY uint256_g EMBEDDED_FIELD_R_inv; 
 extern DEVICE_VAR CONST_MEMORY uint32_t EMBEDDED_FIELD_N;
 
-//base field
-
+// Base field
 extern DEVICE_VAR CONST_MEMORY uint256_g BASE_FIELD_P;
 extern DEVICE_VAR CONST_MEMORY uint32_t BASE_FIELD_N;
 extern DEVICE_VAR CONST_MEMORY uint256_g BASE_FIELD_R; 
@@ -195,30 +174,26 @@ extern DEVICE_VAR CONST_MEMORY uint256_g BASE_FIELD_R3;
 extern DEVICE_VAR CONST_MEMORY uint256_g BASE_FIELD_R4;
 extern DEVICE_VAR CONST_MEMORY uint256_g BASE_FIELD_R8;
 
-//NB: MAGIC_POWER =(P+1)/4 is constant, so we are able to precompute it (it is needed for exponentiation in a finite field)
-//NB: Magic constant should be given in standard form (i.e. NON MONTGOMERY)
+// MAGIC_POWER =(P+1)/4 is constant, so we are able to precompute it (it is needed for exponentiation in a finite field)
+// Magic constant should be given in standard form (i.e. NON MONTGOMERY)
 
 extern DEVICE_VAR CONST_MEMORY uint256_g MAGIC_CONSTANT;
 
-//elliptic curve params
-
-//A = 0
+// Elliptic curve params
+// A = 0
 extern DEVICE_VAR CONST_MEMORY uint256_g CURVE_A_COEFF;
-//B = 3
+// B = 3
 extern DEVICE_VAR CONST_MEMORY uint256_g CURVE_B_COEFF;
 // generator G = [1, 2, 1]
 extern DEVICE_VAR CONST_MEMORY  ec_point CURVE_G;
 
-//this fconstant is used in Kasinski algorithm: that is fast field inversion in Montgomety form
-
+// This fconstant is used in Kasinski algorithm: that is fast field inversion in Montgomety form
 extern DEVICE_VAR CONST_MEMORY uint256_g BASE_FIELD_R_SQUARED;
 
-//this is required for experiemental version of mont mul
-
+// This is required for experiemental version of mont mul
 extern DEVICE_VAR CONST_MEMORY uint256_g BASE_FIELD_N_LARGE;
 
-//this are used for FFT
-
+// This are used for FFT
 extern DEVICE_FUNC size_t ROOTS_OF_UNTY_ARR_LEN;
 extern DEVICE_FUNC CONST_MEMORY uint256_g EMBEDDED_FIELD_ROOTS_OF_UNITY[]; 
 
@@ -228,13 +203,8 @@ extern DEVICE_FUNC CONST_MEMORY uint256_g EMBEDDED_FIELD_MULT_GEN_ARR[];
 extern DEVICE_FUNC size_t MULT_GEN_INV_ARR_LEN;
 extern DEVICE_FUNC CONST_MEMORY uint256_g EMBEDDED_FIELD_MULT_GEN_INV_ARR[];
 
-//a bunch of helpful structs
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-
-//We are not able to compile with C++ 17 standard
-
+// A bunch of helpful structs
+// We are not able to compile with C++ 17 standard :(
 struct none_t{};
 extern DEVICE_VAR CONST_MEMORY none_t NONE_OPT;
 
@@ -264,12 +234,7 @@ public:
 };
 
 
-//device specific functions
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
+// Device specific functions
 DEVICE_FUNC uint128_with_carry_g add_uint128_with_carry_asm(const uint128_g&, const uint128_g&);
 DEVICE_FUNC uint128_g sub_uint128_asm(const uint128_g&, const uint128_g&);
 DEVICE_FUNC uint256_g add_uint256_naive(const uint256_g&, const uint256_g&);
@@ -300,8 +265,7 @@ DEVICE_FUNC inline bool EQUAL(const uint256_g& lhs, const uint256_g& rhs)
     return CMP(lhs, rhs) == 0;
 }
 
-//helper functions for naive multiplication 
-
+// Helper functions for naive multiplication 
 DEVICE_FUNC inline uint32_t device_long_mul(uint32_t x, uint32_t y, uint32_t* high_ptr)
 	{
 		uint32_t high = __umulhi(x, y);
@@ -351,11 +315,7 @@ DEVICE_FUNC uint256_g FIELD_SUB(const uint256_g&, const uint256_g&);
 DEVICE_FUNC uint256_g FIELD_ADD_INV(const uint256_g&);
 DEVICE_FUNC uint256_g FIELD_MUL_INV(const uint256_g&);
 
-//Implementation of these routines doesn't depend on whether we consider prokective or jacobian coordinates
-//------------------------------------------------------------------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------------------------------------------------------------------
-
+// Implementation of these routines doesn't depend on whether we consider prokective or jacobian coordinates
 DEVICE_FUNC inline bool is_infinity(const ec_point& point)
 {
     return is_zero(point.z);
@@ -365,7 +325,7 @@ DEVICE_FUNC inline ec_point point_at_infty()
 {
     ec_point pt;
 	
-	//TD: may be we should use asm and xor here)
+	// XXX: may be we should use asm and xor here?
 	#pragma unroll
     for (int32_t i = 0 ; i < N; i++)
     {
@@ -437,8 +397,7 @@ DEVICE_FUNC ec_point ECC_wNAF_exp_JAC(const ec_point&, const uint256_g&);
 #error The form of elliptic curve coordinates should be explicitely specified
 #endif
 
-//random elements generators
-
+// Random elements generators
 DEVICE_FUNC void gen_random_elem(uint256_g&, curandState&);
 DEVICE_FUNC void gen_random_elem(embedded_field&, curandState&);
 DEVICE_FUNC void gen_random_elem(ec_point&, curandState&);
