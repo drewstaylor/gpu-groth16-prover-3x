@@ -240,8 +240,6 @@ int main(int argc, char **argv) {
     std::string mode(argv[2]);
   
     const char *params_path = argv[3];
-
-    static constexpr size_t threads_per_block = 512;
   
     if (mode == "compute") {
         const char *input_path = argv[4];
