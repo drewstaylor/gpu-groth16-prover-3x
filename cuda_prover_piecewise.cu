@@ -23,6 +23,16 @@ typename B::vector_Fr *compute_H(size_t d, typename B::vector_Fr *ca,
   B::domain_iFFT(domain, cb);
   B::domain_iFFT(domain, cc);
 
+  // Get vector lengths
+  int ca_len = ca.size(); // TODO: dispose of these gracefully
+  int cb_len = cb.size();
+  int cc_len = cc.size();
+
+  printf("ca length: ", ca_len);
+  printf("cb length: ", cb_len);
+  printf("cc length: ", cc_len);
+
+
   B::domain_cosetFFT(domain, ca);
   B::domain_cosetFFT(domain, cb);
 
@@ -230,6 +240,8 @@ int main(int argc, char **argv) {
     std::string mode(argv[2]);
   
     const char *params_path = argv[3];
+
+    static constexpr size_t threads_per_block = 512;
   
     if (mode == "compute") {
         const char *input_path = argv[4];
