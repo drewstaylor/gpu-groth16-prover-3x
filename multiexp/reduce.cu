@@ -242,7 +242,7 @@ ec_sum_all_brent(var *resOut, const var *resIn, size_t n) {
 
 
 //static constexpr size_t threads_per_block = 1024;
-static constexpr size_t threads_per_block = 256;
+static constexpr size_t threads_per_block = 512;
 
 template< typename EC, int C, int R >
 void
