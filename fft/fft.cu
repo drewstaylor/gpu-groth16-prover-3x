@@ -92,7 +92,6 @@ void naive_fft_driver(embedded_field* input_arr, embedded_field* output_arr, uin
     assert(arr_len = (1 << log_arr_len));
 
 	// Find optimal geometry
-
 	cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
 	uint32_t smCount = prop.multiProcessorCount;
@@ -101,18 +100,15 @@ void naive_fft_driver(embedded_field* input_arr, embedded_field* output_arr, uin
 	geometry FFT_iter_geometry = find_suitable_geometry(FFT_iteration, 0, smCount);
 
 	// Allocate additional memory
-
 	embedded_field* additional_device_memory = nullptr;
     cudaError_t cudaStatus = cudaMalloc((void **)&additional_device_memory, arr_len * sizeof(embedded_field));
 	
 	// FFT shuffle;
-
 	embedded_field* temp_output_arr = (log_arr_len % 2 ? additional_device_memory : output_arr);
 	embedded_field* temp_input_arr = (log_arr_len % 2 ? output_arr : additional_device_memory);
 	FFT_shuffle<<<FFT_shuffle_geometry.gridSize, FFT_shuffle_geometry.blockSize>>>(input_arr, temp_output_arr, arr_len, log_arr_len);
 	
 	// FFT main cycle
-
 	for (uint32_t step = 0; step < log_arr_len; step++)
 	{
 		// Swap input and iutput arrs
@@ -123,7 +119,7 @@ void naive_fft_driver(embedded_field* input_arr, embedded_field* output_arr, uin
 		FFT_iteration<<<FFT_iter_geometry.gridSize, FFT_iter_geometry.blockSize>>>(temp_input_arr, temp_output_arr, arr_len, log_arr_len, step);
 	}
 
-	// Lil bit o' thee ol' clean_up
+	// Clean up
 	cudaFree(additional_device_memory);
 }
 
@@ -228,9 +224,8 @@ __global__ void _radix2_one_block_FFT(const embedded_field* input_arr, embedded_
 geometry find_geometry_for_advanced_FFT(uint arr_len)
 {
 	//TODO: this particular values are customized for my architecture
-
-	size_t DEFAULT_FFT_GRID_SIZE = 8;
-	size_t DEFAULT_FFT_BLOCK_SIZE = 512;
+	size_t DEFAULT_FFT_GRID_SIZE = 8;       // 8x8 vector blocks
+	size_t DEFAULT_FFT_BLOCK_SIZE = 512;    // 512 threads
 
 	geometry res;
 
@@ -251,8 +246,7 @@ geometry find_geometry_for_advanced_FFT(uint arr_len)
 
 void advanced_fft_driver(embedded_field* input_arr, embedded_field* output_arr, uint32_t arr_len, bool is_inverse_FFT = false)
 {
-	//first check that arr_len is a power of 2
-
+	// Check that arr_len is a power of 2
 	uint log_arr_len = BITS_PER_LIMB - __builtin_clz(arr_len) - 1;
     assert(arr_len = (1 << log_arr_len));
 
@@ -287,8 +281,7 @@ void advanced_fft_driver(embedded_field* input_arr, embedded_field* output_arr, 
 #define FFT_DRIVER(input_arr, output_arr, arr_len, is_inverse_FFT) advanced_fft_driver(input_arr, output_arr, arr_len, is_inverse_FFT)
 
 
-//polynomial multiplication via FFT
-
+// Polynomial multiplication via FFT
 struct polynomial
 {
 	size_t deg;
