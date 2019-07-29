@@ -167,6 +167,10 @@ enable_testing()
 
 include_directories(.)
 
+add_definitions(
+  --device-c
+)
+
 if(${CURVE} STREQUAL "BN128")
   add_definitions(
     -DBN_SUPPORT_SNARK=1
