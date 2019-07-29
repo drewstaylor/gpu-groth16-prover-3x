@@ -2,7 +2,8 @@
 mkdir build
 pushd build
   cmake -DMULTICORE=ON -DUSE_PT_COMPRESSION=OFF $EXTRA_CMAKE_ARGS_FOR_CI ..
-  make -j12 -VERBOSE=1 main generate_parameters cuda_prover_piecewise
+  #make -j12 -VERBOSE=1 main generate_parameters cuda_prover_piecewise
+  make -j12 VERBOSE=1 main generate_parameters cuda_prover_piecewise
 popd
 mv build/libsnark/main .
 mv build/libsnark/generate_parameters .
