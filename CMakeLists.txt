@@ -167,10 +167,6 @@ enable_testing()
 
 include_directories(.)
 
-add_definitions(
-  --device-c
-)
-
 if(${CURVE} STREQUAL "BN128")
   add_definitions(
     -DBN_SUPPORT_SNARK=1
@@ -258,6 +254,10 @@ add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
 add_subdirectory(depends)
 add_subdirectory(libsnark)
 add_subdirectory(cuda-fixnum)
+
+add_definitions(
+  -dc
+)
 
 add_executable (
     cuda_prover_piecewise
