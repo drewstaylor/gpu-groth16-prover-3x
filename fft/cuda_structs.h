@@ -14,7 +14,7 @@
 #define CONST_MEMORY __constant__
 
 #define HALF_N 4
-#define N 8
+#define N_BASE 8
 #define N_DOUBLED 16
 #define N_BITLEN 254
 #define R_LOG 256
@@ -327,18 +327,18 @@ DEVICE_FUNC inline ec_point point_at_infty()
 	
 	// XXX: may be we should use asm and xor here?
 	#pragma unroll
-    for (int32_t i = 0 ; i < N; i++)
+    for (int32_t i = 0 ; i < N_BASE; i++)
     {
         pt.x.n[i] = 0;
     }
     pt.y.n[0] = 1;
 	#pragma unroll
-    for (int32_t  i= 1 ; i < N; i++)
+    for (int32_t  i= 1 ; i < N_BASE; i++)
     {
         pt.y.n[i] = 0;
     }
 	#pragma unroll
-    for (int32_t i = 0 ; i < N; i++)
+    for (int32_t i = 0 ; i < N_BASE; i++)
     {
         pt.z.n[i] = 0;
     }
