@@ -332,7 +332,7 @@ void run_preprocess(const char *params_path, const char *output_path)
 
     // We will produce 2^C precomputed points [i]P for i = 1..2^C
     // for every input point P
-    static constexpr size_t C = 5;
+    static constexpr size_t C = 4;
 
     size_t d = params.d, m =  params.m;
     printf("d = %zu, m = %zu, C = %zu\n", d, m, C);
@@ -345,8 +345,8 @@ void run_preprocess(const char *params_path, const char *output_path)
     output_g1_multiples<ppT>(C, params.B1, output);
     printf("Processing B2...\n");
     output_g2_multiples<ppT>(C, params.B2, output);
-    // printf("Processing L...\n");
-    // output_g1_multiples<ppT>(C, params.L, output);
+    printf("Processing L...\n");
+    output_g1_multiples<ppT>(C, params.L, output);
 //    printf("Processing H...\n");
 //    output_g1_multiples<ppT>(C, params.H, output);
 

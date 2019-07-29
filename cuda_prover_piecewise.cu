@@ -120,8 +120,8 @@ void run_prover(
     typedef typename B::G1 G1;
     typedef typename B::G2 G2;
 
-    static constexpr int R = 32;
-    static constexpr int C = 5;
+    static constexpr int R = 16;
+    static constexpr int C = 4;
     FILE *preprocessed_file = fopen(preprocessed_path, "r");
 
     size_t space = ((m + 1) + R - 1) / R;
@@ -132,8 +132,8 @@ void run_prover(
     auto B2_mults = load_points_affine<ECpe>(((1U << C) - 1)*(m + 1), preprocessed_file);
     auto out_B2 = allocate_memory(space * ECpe::NELTS * ELT_BYTES);
 
-    // auto L_mults = load_points_affine<ECp>(((1U << C) - 1)*(m - 1), preprocessed_file);
-    // auto out_L = allocate_memory(space * ECpe::NELTS * ELT_BYTES);
+    auto L_mults = load_points_affine<ECp>(((1U << C) - 1)*(m - 1), preprocessed_file);
+    auto out_L = allocate_memory(space * ECpe::NELTS * ELT_BYTES);
 
     fclose(preprocessed_file);
 
@@ -158,24 +158,28 @@ void run_prover(
 
     cudaStream_t sB1, sB2, sL;
 
-    ec_reduce_straus<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1);
-    ec_reduce_straus<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1);
-    // ec_reduce_straus<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
+    ec_reduce<ECp, C, R>(sB1, out_B1.get(), B1_mults.get(), w, m + 1);
+    ec_reduce<ECpe, C, 2*R>(sB2, out_B2.get(), B2_mults.get(), w, m + 1);
+    ec_reduce<ECp, C, R>(sL, out_L.get(), L_mults.get(), w + (primary_input_size + 1) * ELT_LIMBS, m - 1);
     print_time(t, "gpu launch");
 
-    G1 *evaluation_At, *evaluation_Lt, *evaluation_Ht;
-    #pragma omp parallel sections lastprivate(*evaluation_At, *evaluation_Lt, *evaluation_Ht)
+    G1 *evaluation_At, *evaluation_Ht;
+    #pragma omp parallel sections lastprivate(*evaluation_At, *evaluation_Ht)
     {
         #pragma omp section
         {
             evaluation_At = B::multiexp_G1(B::input_w(inputs), B::params_A(params), m + 1);
         }
-        #pragma omp section
-        {
-            evaluation_Lt = B::multiexp_G1(
-                B::vector_Fr_offset(B::input_w(inputs), primary_input_size + 1),
-                B::params_L(params), m - 1);
-        }
+        // #pragma omp section
+        // {
+        //     evaluation_Bt1 = B::multiexp_G1(B::input_w(inputs), B::params_B1(params), m + 1);
+        // }
+        // #pragma omp section
+        // {
+        //     evaluation_Lt = B::multiexp_G1(
+        //         B::vector_Fr_offset(B::input_w(inputs), primary_input_size + 1),
+        //         B::params_L(params), m - 1);
+        // }
         #pragma omp section
         {
             // Do calculations relating to H on CPU after having set the GPU in
@@ -191,15 +195,16 @@ void run_prover(
 
     print_time(t, "cpu 1");
 
-    cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();
+
     cudaStreamSynchronize(sB1);
     G1 *evaluation_Bt1 = B::read_pt_ECp(out_B1.get());
 
     cudaStreamSynchronize(sB2);
     G2 *evaluation_Bt2 = B::read_pt_ECpe(out_B2.get());
 
-    // cudaStreamSynchronize(sL);
-    // G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());
+    cudaStreamSynchronize(sL);
+    G1 *evaluation_Lt = B::read_pt_ECp(out_L.get());
 
     print_time(t_gpu, "gpu e2e");
 
@@ -217,7 +222,7 @@ void run_prover(
 
     cudaStreamDestroy(sB1);
     cudaStreamDestroy(sB2);
-    // cudaStreamDestroy(sL);
+    cudaStreamDestroy(sL);
 
     B::delete_G1(evaluation_At);
     B::delete_G1(evaluation_Bt1);
