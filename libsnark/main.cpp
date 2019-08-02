@@ -332,7 +332,7 @@ void run_preprocess(const char *params_path, const char *output_path)
 
     // We will produce 2^C precomputed points [i]P for i = 1..2^C
     // for every input point P
-    static constexpr size_t C = 4;
+    static constexpr size_t C = 5;
 
     size_t d = params.d, m =  params.m;
     printf("d = %zu, m = %zu, C = %zu\n", d, m, C);

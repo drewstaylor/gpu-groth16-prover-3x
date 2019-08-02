@@ -121,7 +121,7 @@ void run_prover(
     typedef typename B::G2 G2;
 
     static constexpr int R = 32;
-    static constexpr int C = 4;
+    static constexpr int C = 5;
     FILE *preprocessed_file = fopen(preprocessed_path, "r");
 
     size_t space = ((m + 1) + R - 1) / R;
